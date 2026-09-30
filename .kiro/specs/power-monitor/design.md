@@ -751,7 +751,7 @@ class CsvLogger:
     def close(self) -> None: ...         # flush, fsync, close; safe to call twice (Req 11.4)
 ```
 
-`maybe_flush` is called every loop iteration, not only after a write, so the last rows reach disk within one second even if Frames stop arriving.
+`maybe_flush` is called every loop iteration, not only after a write, so the last rows reach disk within one second even if Frames stop arriving. `open()` uses mode `"x"` and refuses to overwrite an existing file, so an earlier log is never silently lost.
 
 **`simulator.py`**
 
@@ -767,7 +767,7 @@ class SimulatedSource:
     def close(self) -> None: ...
 ```
 
-`simulated_values` produces V = 3700 + 400·sin(2πt/20 s) mV rounded to a multiple of 4 mV, and I = 300 + 600·sin(2πt/8 s) mA rounded to a multiple of 100 µA. That spans 3.3–4.1 V and −300…+900 mA, which is inside the Rated_Range and exercises negative current (Req 13.2). Power uses the same round-half-away rule as the firmware; energy accumulates exactly in integer pJ and reports `trunc(acc / 3.6e9)`. Floats are fine here: the no-float rule applies to firmware.
+`simulated_values` produces V = 3700 + 400·sin(2πt/20 s) mV rounded to a multiple of 4 mV, and I = 300 + 600·sin(2πt/8 s) mA rounded to a multiple of 100 µA. That spans 3.3–4.1 V and −300…+900 mA, which is inside the Rated_Range and exercises negative current (Req 13.2). Power uses the same round-half-away rule as the firmware; energy accumulates exactly in integer pJ and reports the integer accumulator divided by `PJ_PER_UWH`, truncated toward zero using integer arithmetic (a float division can be off by one µWh). Floats are fine here: the no-float rule applies to firmware.
 
 **`live_plot.py`**
 
@@ -780,6 +780,7 @@ class PlotBuffer:                      # pure, no matplotlib
     def series(self) -> tuple[list[float], list[float], list[float], list[float]]: ...  # t, V, mA, mW
 class LivePlot:
     def __init__(self, buffer: PlotBuffer) -> None: ...        # imports matplotlib here
+    def add(self, t_s: float, sample: Sample) -> None: ...     # forwards to its PlotBuffer so it fits PlotSink
     def maybe_refresh(self, now_s: float) -> None: ...         # every 0.5 s (Req 12.2)
 ```
 
@@ -792,12 +793,19 @@ class ByteSource(Protocol):
     def read(self) -> bytes: ...
     def close(self) -> None: ...
 
+class PlotSink(Protocol):
+    def add(self, t_s: float, sample: Sample) -> None: ...
+    def maybe_refresh(self, now_s: float) -> None: ...
+
 def build_arg_parser() -> argparse.ArgumentParser: ...
 def run_session(source: ByteSource, parser: FrameParser, monitor: LinkMonitor,
-                logger: CsvLogger, plot: LivePlot | None,
-                wall_clock: Callable[[], float] = time.time) -> int: ...
+                logger: CsvLogger, plot: PlotSink | None,
+                wall_clock: Callable[[], float] = time.time,
+                mono_clock: Callable[[], float] = time.monotonic) -> int: ...
 def main(argv: Sequence[str] | None = None) -> int: ...
 ```
+
+`wall_clock` gives the CSV host time (Unix seconds). `mono_clock` gives the plot's `t_s` (seconds since session start) and `now_s`, because wall-clock time can jump when the system clock is adjusted. Both are injected so tests control them.
 
 ```text
 usage: python -m power_monitor (--port PORT | --simulate) [--baud BAUD] [--csv PATH] [--no-plot]
@@ -1085,7 +1093,7 @@ The firmware ignores the return value of `uart_write_frame` on purpose: debug te
 | Serial port cannot be opened | `error: cannot open serial port <PORT>: <reason>`, exit 1 | 13.6 |
 | Serial port disconnects (`OSError` on read; pyserial's `SerialException` subclasses it, so `run_session` needn't import `serial`) | Close CSV (flush, fsync), print link summary, exit 1 | 13.7 |
 | Ctrl+C (`KeyboardInterrupt`) | Close CSV, print link summary, exit 0 | 10.3, 11.4 |
-| CSV path not writable | `error: cannot open CSV file <PATH>: <reason>`, exit 1 | – |
+| CSV path not writable or already exists | `error: cannot open CSV file <PATH>: <reason>`, exit 1 | – |
 | Plot window closed by the user | Plotting stops; logging continues until Ctrl+C | – |
 
 The session's cleanup is in a `finally` block, so the CSV is closed and the summary printed on every exit path.
@@ -1094,6 +1102,7 @@ The session's cleanup is in a `finally` block, so the CSV is closed and the summ
 
 - **Silent INA219 reset.** If the INA219 browns out between Samples without an I2C failure, its registers return to defaults (CAL = 0), and Current reads 0 without SENSOR_ERROR. Detecting this needs a periodic configuration read-back, which belongs with the "Watchdog timer and I2C bus-recovery sequence" Future Work item.
 - **Reset at `seq` 65535.** Req 10.2's rule only runs when `seq` differs from the expected value. If the board resets exactly when the previous `seq` was 65535, the next `seq` 0 looks normal and no reset is counted (1 case in 65,536; no false drops result).
+- **Reset with a lost `seq` 0 Frame.** If the board resets mid-session and the `seq` 0 Frame is lost, the next Frame (`seq` 1, smaller Timestamp) is not recognized as a reset, because Req 10.2 only recognizes `seq` 0, so the gap is counted as about 65,000 dropped Frames. It needs a reset and a lost Frame at the same moment.
 - **CRC blind spot.** Two-bit errors exactly 127 bits apart pass the CRC (see CRC_Module).
 - **Individual Timestamp jitter.** ±1 ms per interval from `millis()` granularity; the mean is exact.
 
