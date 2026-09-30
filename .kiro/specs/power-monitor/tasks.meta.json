@@ -194,6 +194,18 @@
         "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
         "timestamp": 1790799371807
       }
+    ],
+    "8.1 Implement `simulator.py` with its tests": [
+      {
+        "executionId": "8d7a7dff-8e85-4f4e-af43-39b3304ddfec",
+        "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
+        "timestamp": 1790799848969
+      },
+      {
+        "executionId": "8d7a7dff-8e85-4f4e-af43-39b3304ddfec",
+        "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
+        "timestamp": 1790800320135
+      }
     ]
   }
 }

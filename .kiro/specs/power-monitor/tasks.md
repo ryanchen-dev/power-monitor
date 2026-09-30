@@ -136,7 +136,7 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
 - [ ] 8. Implement the Simulator
   - _Requirements: 13.2, 13.3_
 
-  - [ ] 8.1 Implement `simulator.py` with its tests
+  - [x] 8.1 Implement `simulator.py` with its tests
     - Create `host/power_monitor/simulator.py` with `SIM_SAMPLE_RATE_HZ = 10`, `simulated_values(t_s)` (the design's sine waves, rounded to multiples of 4 mV and 100 µA), `Simulator.next_sample(timestamp_ms)` (seq from 0 with wrap, Power rounded half away from zero, Energy accumulated exactly in integer pJ and truncated toward zero), and `SimulatedSource(simulator, clock, sleep)` with `read()` (sleeps until the next Frame is due, then returns its 25 encoded bytes) and `close()`.
     - Create `host/tests/test_simulator.py`: the first Sample has seq 0; seq wraps 65535 → 0; values change over time; negative current appears; Power matches the round-half-away rule at 617.5 → 618 and −3866.5 → −3867; `decode_frame(source.read())` gives the Simulator's Sample; with a fake clock and fake sleep, `read()` sleeps the right amount and Frames are 100 ms apart.
     - Comment the why: why Power uses integer arithmetic instead of `round()` (Python's `round()` rounds half to even); why `//` isn't used directly for truncation toward zero (Python floors toward −∞, while C truncates toward zero); why Energy is kept in integer pJ (same exactness argument as the firmware); why floats are acceptable here (the no-float rule is for firmware); why clock and sleep are injected (tests run instantly).
