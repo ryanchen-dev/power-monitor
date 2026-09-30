@@ -72,10 +72,10 @@ Conventions for every sub-task: snake_case functions, UPPER_SNAKE_CASE macros, n
     - Comment the why: why the loop variable is `uint32_t` and not `uint16_t` (a `uint16_t` counter can never exceed 65535, so `s <= 65535` is always true and the loop never ends); why testing all inputs is stronger than random sampling here.
     - _Requirements: 7.5_
 
-- [ ] 4. Implement the host protocol module
+- [x] 4. Implement the host protocol module
   - _Requirements: 7.8, 9.1, 9.8, 14.1, 14.2, 14.4_
 
-  - [ ] 4.1 Implement `protocol.py` with `test_protocol.py`
+  - [x] 4.1 Implement `protocol.py` with `test_protocol.py`
     - Create `host/power_monitor/protocol.py` with the design's constants (`SYNC`, `FRAME_LEN_BYTES`, `PAYLOAD_STRUCT = struct.Struct("<HIBHiii")`, CRC-8 parameters, flag bits), the frozen `Sample` dataclass with `slots=True`, `crc8()`, `encode_frame()` (raises `ValueError` if any field is outside its wire type range), `decode_frame()` (raises `ValueError` on wrong input length, bad sync, bad length byte, or bad CRC), and `flag_names()` (names bits 3–7 `RESERVED_BITn`).
     - Create `host/tests/test_protocol.py` with a module-level `GOLDEN_VECTORS: list[tuple[Sample, bytes]]`, one `bytes.fromhex("AA 55 ...")` literal per vector, copied from `docs/packet_format.md`.
     - Tests: GV1–GV3 encode to their bytes and decode to their Samples; `crc8(b"123456789") == 0xF4`; `PAYLOAD_STRUCT.size == 21` and `FRAME_LEN_BYTES == 25`; each field one past its minimum and maximum raises `ValueError` on encode; bad sync, bad length byte, bad CRC, and wrong input length raise on decode; `flag_names(0x06) == ["OVERRANGE", "ENERGY_SATURATED"]`; `flag_names(0x20) == ["RESERVED_BIT5"]`.
