@@ -12,6 +12,7 @@ from power_monitor.protocol import (
     FLAG_OVERRANGE,
     FLAG_SENSOR_ERROR,
     Sample,
+    flag_names,
 )
 
 FRAME_PERIOD_MS = 100  # the default 10 Hz firmware rate
@@ -237,4 +238,87 @@ def test_drops_and_resets_are_counted_exactly(stream: LinkStream) -> None:
         frames_received=len(stream.samples),
         dropped_frames=stream.removed_count,
         device_resets=stream.run_count - 1,
+    )
+
+
+# --- Property 15: one message per flag state change -----------------------
+
+MAX_FLAG_SAMPLES: Final = 30  # far below 65536, so seq never wraps here
+FLAG_BITS: Final = 8  # status_flags is one byte on the wire
+FLAGS_MAX: Final = 0xFF
+FLAG_TEST_START_MS: Final = 1_000_000
+
+
+@st.composite
+def flag_sequences(draw: st.DrawFn) -> list[int]:
+    """A list of status_flags values where each one is built from the one before."""
+    # Fully random bytes would change about 4 bits on almost every Sample, so
+    # "no change" and "exactly one bit changes" (the common cases on real
+    # hardware) would rarely be tested. Drawing a transition kind first makes
+    # each kind show up about a quarter of the time.
+    length = draw(st.integers(min_value=0, max_value=MAX_FLAG_SAMPLES))
+    values: list[int] = []
+    # The first value is also built by a transition from 0, the same starting
+    # point LinkMonitor uses, so "first Sample has no flags" and "first Sample
+    # sets one flag" both come up often.
+    prev = 0
+    for _ in range(length):
+        kind = draw(st.sampled_from(["same", "one bit", "several bits", "any value"]))
+        if kind == "same":
+            value = prev
+        elif kind == "one bit":
+            value = prev ^ (1 << draw(st.integers(min_value=0, max_value=FLAG_BITS - 1)))
+        elif kind == "several bits":
+            # A mask of 0 is allowed: it just gives another "same" step.
+            value = prev ^ draw(st.integers(min_value=0, max_value=FLAGS_MAX))
+        else:
+            value = draw(st.integers(min_value=0, max_value=FLAGS_MAX))
+        values.append(value)
+        prev = value
+    return values
+
+
+# Feature: power-monitor, Property 15: One message per flag state change
+# Validates: Requirements 10.4
+@given(flag_sequences())
+def test_one_message_per_flag_state_change(values: list[int]) -> None:
+    monitor = LinkMonitor()
+    messages: list[str] = []
+    for i, flags in enumerate(values):
+        # Consecutive seq and increasing Timestamps: no drops or resets, so
+        # only the flag logic is under test.
+        sample = make_sample(i, FLAG_TEST_START_MS + i * FRAME_PERIOD_MS, flags)
+        messages += monitor.update(sample)
+
+    # The model counts each bit on its own. Flags are independent: in one
+    # Sample SENSOR_ERROR can clear while OVERRANGE sets, so "one message per
+    # state change" is a rule about each bit, not about the byte as a whole.
+    # Per-bit counts catch a message naming the wrong flag, a missing message,
+    # or a duplicate; a single total count could miss a wrong-flag message
+    # (one too few for one bit, one too many for another still adds up).
+    # Bits are compared one at a time with shifts, not with the masks that
+    # link_monitor.py uses, so the model doesn't just repeat the code it tests.
+    set_count = [0] * FLAG_BITS
+    cleared_count = [0] * FLAG_BITS
+    history = [0, *values]  # LinkMonitor treats flags before the first Sample as 0
+    for prev, cur in zip(history, history[1:]):
+        for bit in range(FLAG_BITS):
+            prev_bit = (prev >> bit) & 1
+            cur_bit = (cur >> bit) & 1
+            if prev_bit == 0 and cur_bit == 1:
+                set_count[bit] += 1
+            elif prev_bit == 1 and cur_bit == 0:
+                cleared_count[bit] += 1
+
+    for bit in range(FLAG_BITS):
+        name = flag_names(1 << bit)[0]
+        # Whole-string counts: "OVERRANGE set" must not also match inside some
+        # other message the way a substring check could.
+        assert messages.count(f"warning: {name} set") == set_count[bit], name
+        assert messages.count(f"info: {name} cleared") == cleared_count[bit], name
+    # Every message must be one of the ones counted above: nothing extra.
+    assert len(messages) == sum(set_count) + sum(cleared_count)
+
+    assert monitor.stats == LinkStats(
+        frames_received=len(values), dropped_frames=0, device_resets=0
     )

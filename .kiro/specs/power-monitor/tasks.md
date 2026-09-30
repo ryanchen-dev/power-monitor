@@ -149,7 +149,7 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: why the multiples matter (they match real hardware steps, so simulated data looks like real data).
     - _Requirements: 13.2, 15.5_
 
-- [ ] 9. Implement the LinkMonitor
+- [x] 9. Implement the LinkMonitor
   - _Requirements: 10.1, 10.2, 10.3, 10.4_
 
   - [x] 9.1 Implement `link_monitor.py` with example tests
@@ -165,7 +165,7 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: why the first and last Frames of a run are never removed (a loss at a run's edge looks the same as the reset itself); why the previous seq must not be 65535.
     - _Requirements: 10.1, 10.2, 15.5_
 
-  - [ ] 9.3 Write the flag message property test
+  - [x] 9.3 Write the flag message property test
     - **Property 15: One message per flag state change**
     - **Validates: Requirements 10.4**
     - For a random sequence of `status_flags` values, assert that for each bit, the number of messages naming that flag equals the number of changes of that bit (starting from 0), with "set" for 0 → 1 and "cleared" for 1 → 0.
