@@ -133,7 +133,7 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: why garbage excludes `0xAA` (garbage containing a false sync can cost a checksum error, which Req 9.7 excludes); why random split points model serial reads that return arbitrary byte counts.
     - _Requirements: 9.3, 9.4, 9.7, 15.5_
 
-- [ ] 8. Implement the Simulator
+- [x] 8. Implement the Simulator
   - _Requirements: 13.2, 13.3_
 
   - [x] 8.1 Implement `simulator.py` with its tests
@@ -142,7 +142,7 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: why Power uses integer arithmetic instead of `round()` (Python's `round()` rounds half to even); why `//` isn't used directly for truncation toward zero (Python floors toward −∞, while C truncates toward zero); why Energy is kept in integer pJ (same exactness argument as the firmware); why floats are acceptable here (the no-float rule is for firmware); why clock and sleep are injected (tests run instantly).
     - _Requirements: 13.2, 13.3_
 
-  - [ ] 8.2 Write the Rated_Range property test for simulated values
+  - [x] 8.2 Write the Rated_Range property test for simulated values
     - **Property 18: Simulated values stay inside the Rated_Range**
     - **Validates: Requirements 13.2**
     - In `test_simulator.py`, for `t` in 0…10⁷ s, assert Bus_Voltage is in 0…6000 mV and a multiple of 4, and Current is in ±1,000,000 µA and a multiple of 100.

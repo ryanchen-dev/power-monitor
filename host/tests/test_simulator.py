@@ -1,6 +1,8 @@
 """Example tests for power_monitor.simulator (design.md, "simulator.py")."""
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from power_monitor.protocol import FRAME_LEN_BYTES, decode_frame
 from power_monitor.simulator import (
@@ -182,3 +184,38 @@ def test_late_read_never_sleeps_negative_and_stays_on_grid() -> None:
     # Slept only up to the 0.3 s grid point, not 0.1 s past the late read.
     assert fake.sleeps == pytest.approx([0.05])
     assert fake.now_s == pytest.approx(0.3)
+
+
+# --- Property 18: Rated_Range -------------------------------------------------
+
+# The Rated_Range and the INA219's reading steps, written out here rather than
+# taken from simulator.py, so the test checks the simulator against the spec
+# instead of against its own constants.
+RATED_BUS_VOLTAGE_MIN_MV = 0
+RATED_BUS_VOLTAGE_MAX_MV = 6000
+BUS_VOLTAGE_STEP_MV = 4  # INA219 bus voltage LSB
+RATED_CURRENT_MAX_UA = 1_000_000  # the Rated_Range is symmetric: +/-1 A
+CURRENT_STEP_UA = 100  # current LSB set by the firmware's calibration
+MAX_SIM_TIME_S = 1e7  # about 116 days, past the 49.7-day Timestamp wrap
+
+
+# Feature: power-monitor, Property 18: Simulated values stay inside the Rated_Range
+# Validates: Requirements 13.2
+@given(st.floats(min_value=0.0, max_value=MAX_SIM_TIME_S, allow_nan=False, allow_infinity=False))
+def test_simulated_values_stay_inside_rated_range(t_s: float) -> None:
+    v_mv, i_ua = simulated_values(t_s)
+
+    # `type(x) is int`, not isinstance: bool is a subclass of int, so
+    # isinstance(True, int) is True; a float like 3700.0 must fail too.
+    assert type(v_mv) is int
+    assert type(i_ua) is int
+
+    assert RATED_BUS_VOLTAGE_MIN_MV <= v_mv <= RATED_BUS_VOLTAGE_MAX_MV
+    assert -RATED_CURRENT_MAX_UA <= i_ua <= RATED_CURRENT_MAX_UA
+
+    # The real sensor can only report multiples of these steps. Holding the
+    # simulator to the same grid makes its data look like the device's, so the
+    # CSV, plot, and any later analysis are exercised with values the hardware
+    # can actually produce.
+    assert v_mv % BUS_VOLTAGE_STEP_MV == 0
+    assert i_ua % CURRENT_STEP_UA == 0
