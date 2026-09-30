@@ -105,7 +105,7 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
 - [ ] 7. Implement the FrameParser
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7_
 
-  - [ ] 7.1 Implement `parser.py` with example tests
+  - [x] 7.1 Implement `parser.py` with example tests
     - Create `host/power_monitor/parser.py` with `FrameParser` (`checksum_errors`, `feed(data) -> list[Sample]`) that follows the design's six parsing rules.
     - Create `host/tests/test_parser.py` with examples: one Frame in one read; one Frame split across three reads; garbage before a Frame is dropped; a wrong length byte and a bad CRC are each counted once; a valid Frame that starts inside a rejected candidate is still found; two back-to-back Frames; the internal buffer holds at most 24 bytes after `feed` returns.
     - Comment the why: briefly explain sync-byte resynchronization; why a failed candidate drops only its first byte and not all 25; why the length byte is checked before waiting for the full Frame; why a length mismatch counts as a checksum error (Req 9.2 groups them).
