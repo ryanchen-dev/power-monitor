@@ -6,6 +6,11 @@
         "executionId": "784056b3-8e24-4bf5-b614-ee3d1667691e",
         "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
         "timestamp": 1790777016381
+      },
+      {
+        "executionId": "53603f46-d7dc-4c0c-a97c-3d791fe876b1",
+        "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
+        "timestamp": 1790779008531
       }
     ],
     "1.2 Create the host scaffold and prove pytest runs": [
@@ -18,6 +23,39 @@
         "executionId": "784056b3-8e24-4bf5-b614-ee3d1667691e",
         "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
         "timestamp": 1790777567718
+      }
+    ],
+    "1.3 Write the README": [
+      {
+        "executionId": "53603f46-d7dc-4c0c-a97c-3d791fe876b1",
+        "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
+        "timestamp": 1790779008882
+      }
+    ],
+    "1. Scaffold the firmware and host projects": [
+      {
+        "executionId": "53603f46-d7dc-4c0c-a97c-3d791fe876b1",
+        "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
+        "timestamp": 1790779008975
+      }
+    ],
+    "2.1 Implement `pm_crc8` with its Unity tests": [
+      {
+        "executionId": "53603f46-d7dc-4c0c-a97c-3d791fe876b1",
+        "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
+        "timestamp": 1790779117862
+      },
+      {
+        "executionId": "53603f46-d7dc-4c0c-a97c-3d791fe876b1",
+        "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
+        "timestamp": 1790779269815
+      }
+    ],
+    "2. Implement the C CRC_Module": [
+      {
+        "executionId": "53603f46-d7dc-4c0c-a97c-3d791fe876b1",
+        "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
+        "timestamp": 1790779269869
       }
     ]
   }

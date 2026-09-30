@@ -271,6 +271,8 @@ test_ignore = *
 [env:native]
 platform = platformio/native@1.2.1
 test_framework = unity
+; Exact pin: PlatformIO Core otherwise resolves Unity as ^2.6.1, so a fresh install could silently get a newer 2.6.x.
+lib_deps = throwtheswitch/Unity@2.6.1
 ; test_build_src defaults to "no", so src/ (main.cpp and the Arduino drivers) is never compiled here.
 ; lib/pm_logic is found by the Library Dependency Finder when a test #includes its headers.
 build_flags =
@@ -283,7 +285,7 @@ build_flags =
     -fsanitize-trap=signed-integer-overflow
 ```
 
-Pinning the platforms pins the AVR toolchain and Arduino core. Unity is supplied by PlatformIO Core for `test_framework = unity`; its resolved version is printed by `pio test -v` and recorded in the README when the project is first built.
+Pinning the platforms pins the AVR toolchain and Arduino core. Unity is pinned to 2.6.1 via `lib_deps`, so every machine builds the tests against the same version.
 
 ## Components and Interfaces
 

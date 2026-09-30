@@ -30,5 +30,5 @@ Run these from the repo root with the venv active.
 
 ## Test framework version
 
-Unity 2.6.1 (resolved by PlatformIO Core 6.2.0 as `throwtheswitch/Unity @ ^2.6.1`).
-It's recorded here because PlatformIO Core supplies Unity, so `platformio.ini` doesn't pin its version.
+Unity 2.6.1, pinned in `platformio.ini` (`lib_deps = throwtheswitch/Unity@2.6.1`).
+The exact pin means every machine runs the tests against the same Unity version.

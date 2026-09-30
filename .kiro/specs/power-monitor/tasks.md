@@ -18,10 +18,10 @@ Conventions for every sub-task: snake_case functions, UPPER_SNAKE_CASE macros, n
 
 ### Slice 1: Packet format end to end
 
-- [ ] 1. Scaffold the firmware and host projects
+- [x] 1. Scaffold the firmware and host projects
   - _Requirements: 15.1, 15.2, 15.5_
 
-  - [-] 1.1 Create the firmware scaffold and prove `pio test -e native` runs
+  - [x] 1.1 Create the firmware scaffold and prove `pio test -e native` runs
     - Create `platformio.ini` exactly as in the design (both environments, pinned platforms, `test_ignore = *` for `uno`, the `-Wall -Wextra` and signed-overflow trap flags for `native`), including its comments.
     - Create `src/`, `lib/pm_logic/src/`, and `test/`. Empty directories get a `.gitkeep`, since git does not track empty directories.
     - Create `lib/pm_logic/src/pm_status.h` with the `pm_status_t` enum from the design, an include guard, and `extern "C"` guards.
@@ -40,15 +40,15 @@ Conventions for every sub-task: snake_case functions, UPPER_SNAKE_CASE macros, n
     - Comment the why: why 200 examples (above the 100 minimum) and why `deadline=None` (the later `ctypes` fixture's first call includes compiling and loading a library); why `python -m pytest` run from `host/` can import `power_monitor` with no packaging step (the current directory is added to `sys.path`).
     - _Requirements: 15.5_
 
-  - [ ] 1.3 Write the README
+  - [x] 1.3 Write the README
     - Create `README.md` with a one-paragraph project description, the host setup line `python3 -m venv .venv && source .venv/bin/activate && pip install -r host/requirements.txt`, and the three commands `pio test -e native`, `cd host && python -m pytest`, and `pio run -e uno`, each with a one-line purpose. Record the Unity version noted in 1.1.
     - Comment the why: state in one line why the Unity version is recorded (PlatformIO Core supplies Unity, so the version isn't pinned in `platformio.ini`).
     - _Requirements: 15.2, 15.5, 16.1, 16.2_
 
-- [ ] 2. Implement the C CRC_Module
+- [x] 2. Implement the C CRC_Module
   - _Requirements: 7.3, 7.8, 15.3_
 
-  - [ ] 2.1 Implement `pm_crc8` with its Unity tests
+  - [x] 2.1 Implement `pm_crc8` with its Unity tests
     - Create `lib/pm_logic/src/pm_crc8.h/.c` with `PM_CRC8_POLY`, `PM_CRC8_INIT`, and the bitwise `pm_crc8(const uint8_t *data, size_t len)` from the design.
     - Create `test/test_crc8/test_main.c`: `"123456789"` gives `0xF4`; empty input gives `PM_CRC8_INIT`; GV1 bytes 2–23 give `0x77`.
     - Delete `test/test_smoke/`.
