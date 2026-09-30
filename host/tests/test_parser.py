@@ -2,10 +2,12 @@
 
 import pytest
 from hypothesis import given
+from hypothesis import strategies as st
 
 from power_monitor.parser import FrameParser
 from power_monitor.protocol import (
     CRC_OFFSET,
+    CRC_START_OFFSET,
     FRAME_LEN_BYTES,
     LENGTH_OFFSET,
     SYNC,
@@ -153,3 +155,34 @@ def test_encode_then_parse_is_identity(sample: Sample) -> None:
     parser = FrameParser()
     assert parser.feed(encode_frame(sample)) == [sample]
     assert parser.checksum_errors == 0
+
+
+BITS_PER_BYTE = 8
+# CRC_START_OFFSET is 2, the length byte: the first byte after the two sync
+# bytes. So the checked bits run from the length byte (bit 16) to the last
+# bit of the CRC byte (bit 199).
+FIRST_CHECKED_BIT = CRC_START_OFFSET * BITS_PER_BYTE
+LAST_CHECKED_BIT = FRAME_LEN_BYTES * BITS_PER_BYTE - 1
+
+
+# Feature: power-monitor, Property 12: Single-bit errors are rejected and counted
+# Validates: Requirements 9.2, 9.6
+# Why the sync bytes are excluded: flipping a sync bit means the bytes never
+# form an AA 55 candidate, so the parser drops them as garbage (rules 1-2),
+# which by design is not a checksum error. The property would wrongly fail
+# there. Corrupted sync is covered by resynchronization (Property 13) instead.
+# Why the CRC catches every single-bit error: a one-bit error adds the
+# polynomial x^k to the message. The generator x^8 + x^2 + x + 1 has more than
+# one term, so it can never divide x^k exactly; the remainder is never zero,
+# so the CRC no longer matches. (A flipped length bit is caught even earlier,
+# by rule 3.)
+@given(valid_samples(), st.integers(FIRST_CHECKED_BIT, LAST_CHECKED_BIT))
+def test_single_bit_error_is_rejected_and_counted(sample: Sample, bit: int) -> None:
+    frame = bytearray(encode_frame(sample))
+    frame[bit // BITS_PER_BYTE] ^= 1 << (bit % BITS_PER_BYTE)
+
+    parser = FrameParser()
+    assert parser.feed(bytes(frame)) == []
+    # >= 1, not == 1: after the bad candidate is rejected, its remaining bytes
+    # are rescanned and may hold a false AA 55 in the data, which is counted too.
+    assert parser.checksum_errors >= 1

@@ -3,6 +3,10 @@
     "7.2 Write the round-trip property test and shared strategies": {
       "status": "passed",
       "lastRunTimestamp": 1790798184269
+    },
+    "7.3 Write the single-bit-error property test": {
+      "status": "passed",
+      "lastRunTimestamp": 1790798562125
     }
   },
   "executionHistory": {
@@ -154,6 +158,18 @@
         "executionId": "0ec915d9-d6aa-40e2-8bd9-7cf39b2b549a",
         "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
         "timestamp": 1790798231234
+      }
+    ],
+    "7.3 Write the single-bit-error property test": [
+      {
+        "executionId": "3afa5b51-ddef-4024-bd99-563650bd5f3e",
+        "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
+        "timestamp": 1790798480017
+      },
+      {
+        "executionId": "3afa5b51-ddef-4024-bd99-563650bd5f3e",
+        "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
+        "timestamp": 1790798700035
       }
     ]
   }

@@ -119,7 +119,7 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: briefly explain property-based testing and shrinking; why the generators lean toward edge values (random 32-bit integers almost never hit boundaries).
     - _Requirements: 9.1, 9.5, 15.5_
 
-  - [ ] 7.3 Write the single-bit-error property test
+  - [x] 7.3 Write the single-bit-error property test
     - **Property 12: Single-bit errors are rejected and counted**
     - **Validates: Requirements 9.2, 9.6**
     - Generate a valid Sample and a bit index covering bytes 2–24 (bits 16–199), flip that bit, feed the result to a new parser, and assert no Sample is returned and `checksum_errors >= 1`.
