@@ -172,7 +172,7 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: why counting per bit is the right model (flags change independently).
     - _Requirements: 10.4, 15.5_
 
-- [ ] 10. Implement the CsvLogger
+- [x] 10. Implement the CsvLogger
   - _Requirements: 11.1, 11.2, 11.3, 11.4_
 
   - [x] 10.1 Implement `csv_logger.py` with its tests
@@ -181,7 +181,7 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: why `fsync` in addition to `flush` (`flush` only reaches the OS buffer, `fsync` reaches the disk); why `maybe_flush` is called every loop and not only after a write; why integers are written without unit conversion (no precision is lost).
     - _Requirements: 11.1, 11.2, 11.3, 11.4_
 
-  - [ ] 10.2 Write the CSV round-trip property test
+  - [x] 10.2 Write the CSV round-trip property test
     - **Property 16: CSV rows round-trip**
     - **Validates: Requirements 11.2**
     - Using `valid_samples()` and a random host time, write one row, read it back with `csv.reader`, and assert the seven integer fields match and the host time is within 1 ms.

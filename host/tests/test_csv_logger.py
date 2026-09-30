@@ -5,13 +5,18 @@ Every test writes real files, and only inside pytest's tmp_path.
 
 import csv
 import io
+import re
 from pathlib import Path
+from typing import Final
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from power_monitor import csv_logger
 from power_monitor.csv_logger import CSV_FLUSH_PERIOD_S, CSV_HEADER, CsvLogger
 from power_monitor.protocol import Sample
+from strategies import valid_samples
 
 # Expected unit suffix per column, from the "CSV schema" table in design.md.
 UNIT_SUFFIXES = {
@@ -190,3 +195,62 @@ def test_open_refuses_to_overwrite_an_existing_log(tmp_path: Path) -> None:
     with pytest.raises(FileExistsError):
         CsvLogger.open(path)
     assert path.read_text(encoding="utf-8") == "earlier run\n"
+
+
+# Upper bound for generated host times, in Unix seconds: 4e9 s is around the
+# year 2096, well past any real run, and still a normal-sized double.
+MAX_HOST_TIME_S: Final = 4e9
+# The host time column has 3 decimals, so its resolution is 1 ms. Rounding to
+# the nearest millisecond moves the value by at most half of that, 0.5 ms.
+HOST_TIME_ROUNDING_S: Final = 0.0005
+# Floats add a tiny extra error on top of that rounding. Near 4e9 s, adjacent
+# doubles are about 4.8e-7 s apart, so formatting the time and parsing it back
+# can each be off by up to about that much. 1e-6 s covers both, and is still
+# 500 times smaller than the 0.5 ms rounding, so it can't hide a real bug.
+FLOAT_TOLERANCE_S: Final = 1e-6
+# Digits, a decimal point, then exactly 3 digits (host times are never negative).
+HOST_TIME_PATTERN: Final = re.compile(r"\d+\.\d{3}")
+
+
+# Feature: power-monitor, Property 16: CSV rows round-trip
+# Validates: Requirements 11.2
+@given(
+    valid_samples(),
+    st.floats(
+        min_value=0.0, max_value=MAX_HOST_TIME_S, allow_nan=False, allow_infinity=False
+    ),
+)
+def test_csv_row_round_trips(
+    tmp_path_factory: pytest.TempPathFactory, sample: Sample, host_time_s: float
+) -> None:
+    # Not tmp_path: that fixture is created once per test function, so every
+    # hypothesis example would share one directory, and open() uses mode "x",
+    # which refuses a file that already exists. tmp_path_factory is
+    # session-scoped, and mktemp() here makes a new directory per example.
+    path = tmp_path_factory.mktemp("csv_roundtrip") / "log.csv"
+    logger = CsvLogger.open(path)
+    logger.write(host_time_s, sample)
+    logger.close()
+
+    rows = read_rows(path)
+    assert rows[0] == list(CSV_HEADER)
+    assert len(rows) == 2
+    host_time_text, *field_texts = rows[1]
+
+    # Checked by shape, not by rebuilding the string with the logger's own
+    # f-string, so a formatting bug in the logger can't also be in the test.
+    assert HOST_TIME_PATTERN.fullmatch(host_time_text), host_time_text
+    assert abs(float(host_time_text) - host_time_s) <= HOST_TIME_ROUNDING_S + FLOAT_TOLERANCE_S
+
+    # Listed explicitly in the design's column order rather than read from
+    # CSV_HEADER, so a column-order bug in the logger is caught here too.
+    expected_fields = [
+        sample.timestamp_ms,
+        sample.seq,
+        sample.status_flags,
+        sample.bus_voltage_mv,
+        sample.current_ua,
+        sample.power_mw,
+        sample.energy_uwh,
+    ]
+    assert [int(text) for text in field_texts] == expected_fields
