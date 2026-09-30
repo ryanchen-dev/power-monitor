@@ -55,7 +55,7 @@ Conventions for every sub-task: snake_case functions, UPPER_SNAKE_CASE macros, n
     - Comment the why: briefly explain what a CRC is (polynomial division with XOR, where the remainder is the checksum); why the loop is bitwise instead of table-driven (on AVR a `const` 256-byte table is copied into SRAM, which is 25% of the RAM budget); why each shift result is cast to `uint8_t` (integer promotion to `int`); what the implicit x⁸ term in `0x07` means.
     - _Requirements: 7.3, 7.8, 14.2, 15.3_
 
-- [ ] 3. Implement the C Frame_Encoder
+- [x] 3. Implement the C Frame_Encoder
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.7, 14.4, 15.3_
 
   - [x] 3.1 Implement `pm_frame` with its Golden_Vector Unity tests
@@ -65,7 +65,7 @@ Conventions for every sub-task: snake_case functions, UPPER_SNAKE_CASE macros, n
     - Comment the why: briefly explain little-endian; why fields are written with shifts instead of `memcpy` of the struct (padding differs: 21 bytes on AVR, 24 on the Mac); why converting a signed value to `uint32_t` gives two's-complement bytes (C defines it as modulo 2³²); why `PM_FRAME_LEN_BYTES` is a plain integer (it must work in `#if`); why `pm_frame_next_seq` casts after adding (promotion to `int`).
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.7, 14.4, 15.3_
 
-  - [ ] 3.2 Add the exhaustive sequence-wrap test (Unity, required)
+  - [x] 3.2 Add the exhaustive sequence-wrap test (Unity, required)
     - **Property 9: Sequence numbers wrap**
     - **Validates: Requirements 7.5**
     - In `test/test_frame/test_main.c`, loop over all 65,536 values of `s` and assert `pm_frame_next_seq(s) == (s + 1) % 65536`.

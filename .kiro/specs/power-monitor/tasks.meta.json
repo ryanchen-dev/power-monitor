@@ -69,6 +69,25 @@
         "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
         "timestamp": 1790794093101
       }
+    ],
+    "3.2 Add the exhaustive sequence-wrap test (Unity, required)": [
+      {
+        "executionId": "27a9b10f-97dc-4d55-8075-ff5df4450f43",
+        "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
+        "timestamp": 1790794900678
+      },
+      {
+        "executionId": "27a9b10f-97dc-4d55-8075-ff5df4450f43",
+        "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
+        "timestamp": 1790795117571
+      }
+    ],
+    "3. Implement the C Frame_Encoder": [
+      {
+        "executionId": "27a9b10f-97dc-4d55-8075-ff5df4450f43",
+        "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
+        "timestamp": 1790795117615
+      }
     ]
   }
 }

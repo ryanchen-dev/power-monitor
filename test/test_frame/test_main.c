@@ -1,4 +1,5 @@
 /* Unity tests for the Frame_Encoder (Req 7.1-7.4, 7.7, 14.4, 15.3). */
+#include <stdio.h>
 #include <string.h>
 #include <unity.h>
 #include "pm_frame.h"
@@ -8,6 +9,8 @@
 #define SENTINEL_BYTE          0xEEu
 #define SHORT_BUFFER_LEN_BYTES (PM_FRAME_LEN_BYTES - 1)
 #define LONG_BUFFER_LEN_BYTES  (PM_FRAME_LEN_BYTES + 1)
+#define SEQ_VALUE_COUNT        65536u  /* number of distinct uint16_t values */
+#define SEQ_MSG_LEN_BYTES      16      /* fits "s = 65535" plus the NUL */
 
 /* Golden_Vector Frame bytes, copied from docs/packet_format.md. Keep this exact
  * declaration form: the drift test (host/tests/test_golden_vectors_sync.py)
@@ -113,6 +116,27 @@ static void test_next_seq_wraps_at_max(void)
     TEST_ASSERT_EQUAL_UINT16(0u, pm_frame_next_seq(UINT16_MAX));
 }
 
+/* Feature: power-monitor, Property 9: Sequence numbers wrap */
+/* Why exhaustive: there are only 65,536 inputs, so checking every one
+ * (including the 65535 -> 0 wrap) takes milliseconds and is a proof by
+ * exhaustion. Random sampling could miss the one input that matters.
+ * The expected value uses modulo on purpose, not the implementation's
+ * uint16_t cast, so the test doesn't just repeat the code under test. */
+static void test_next_seq_wraps_for_every_input(void)
+{
+    /* Why uint32_t: a uint16_t counter can never reach 65536, so
+     * `s < SEQ_VALUE_COUNT` would always be true and the loop would never end. */
+    uint32_t s;
+    char msg[SEQ_MSG_LEN_BYTES];
+
+    for (s = 0u; s < SEQ_VALUE_COUNT; s++) {
+        uint16_t expected = (uint16_t)((s + 1u) % SEQ_VALUE_COUNT);
+        /* Unity only prints expected vs actual; the message names the input. */
+        snprintf(msg, sizeof msg, "s = %lu", (unsigned long)s);
+        TEST_ASSERT_EQUAL_UINT16_MESSAGE(expected, pm_frame_next_seq((uint16_t)s), msg);
+    }
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -123,5 +147,6 @@ int main(void)
     RUN_TEST(test_long_buffer_gets_exactly_one_frame);
     RUN_TEST(test_next_seq_increments);
     RUN_TEST(test_next_seq_wraps_at_max);
+    RUN_TEST(test_next_seq_wraps_for_every_input);
     return UNITY_END();
 }
