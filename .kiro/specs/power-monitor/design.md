@@ -201,7 +201,7 @@ flowchart LR
     B -.->|"maybe_refresh() each loop"| W["matplotlib window"]
 ```
 
-One loop on the main thread: read available bytes (serial timeout 50 ms, or the simulator sleeps until its next Frame is due), feed the parser, dispatch each decoded Sample, then run the time-based housekeeping (CSV flush at least once per second, plot refresh every 0.5 s). `--simulate` swaps only the byte source, so simulated Frames go through the same `FrameParser` as serial bytes (Req 13.3).
+One loop on the main thread: read available bytes (serial timeout 50 ms, or the simulator sleeps until its next Frame is due), feed the parser, dispatch each decoded Sample, then run the time-based housekeeping (CSV flush every 0.5 s, so rows reach disk within 1 s (Req 11.3), plot refresh every 0.5 s). `--simulate` swaps only the byte source, so simulated Frames go through the same `FrameParser` as serial bytes (Req 13.3).
 
 When the host opens the serial port, macOS asserts DTR and the Uno auto-resets. The first Frames after opening can include the tail of a pre-reset Frame (discarded by the parser) followed by a Frame with `seq = 0` and a small Timestamp. `LinkMonitor` records that as a device reset rather than a burst of dropped Frames (Req 10.2).
 
@@ -740,14 +740,14 @@ def format_summary(stats: LinkStats, checksum_errors: int) -> str: ...
 ```python
 CSV_HEADER: Final = ("host_time_unix_s", "timestamp_ms", "seq", "status_flags",
                      "bus_voltage_mv", "current_ua", "power_mw", "energy_uwh")
-CSV_FLUSH_PERIOD_S: Final = 1.0
+CSV_FLUSH_PERIOD_S: Final = 0.5
 
 class CsvLogger:
     def __init__(self, stream: TextIO, clock: Callable[[], float] = time.monotonic) -> None: ...
     @classmethod
     def open(cls, path: Path) -> "CsvLogger": ...        # writes the header (Req 11.1)
     def write(self, host_time_unix_s: float, sample: Sample) -> None: ...   # Req 11.2
-    def maybe_flush(self) -> None: ...   # flush + os.fsync if >= 1 s since last flush (Req 11.3)
+    def maybe_flush(self) -> None: ...   # flush + os.fsync if >= 0.5 s since last flush (Req 11.3)
     def close(self) -> None: ...         # flush, fsync, close; safe to call twice (Req 11.4)
 ```
 

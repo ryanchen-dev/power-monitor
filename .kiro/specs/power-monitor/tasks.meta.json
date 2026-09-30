@@ -272,6 +272,18 @@
         "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
         "timestamp": 1790803339772
       }
+    ],
+    "10.1 Implement `csv_logger.py` with its tests": [
+      {
+        "executionId": "21d4dc19-d9c6-40d1-84b2-6332e5143b3e",
+        "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
+        "timestamp": 1790807801736
+      },
+      {
+        "executionId": "21d4dc19-d9c6-40d1-84b2-6332e5143b3e",
+        "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
+        "timestamp": 1790808003193
+      }
     ]
   }
 }

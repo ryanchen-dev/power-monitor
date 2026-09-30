@@ -175,9 +175,9 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
 - [ ] 10. Implement the CsvLogger
   - _Requirements: 11.1, 11.2, 11.3, 11.4_
 
-  - [ ] 10.1 Implement `csv_logger.py` with its tests
-    - Create `host/power_monitor/csv_logger.py` with `CSV_HEADER`, `CSV_FLUSH_PERIOD_S = 1.0`, and `CsvLogger` (`__init__(stream, clock)`, `open(path)` writes the header, `write(host_time_unix_s, sample)` with 3-decimal host time, `maybe_flush()` calls flush + `os.fsync` when at least 1 s has passed, `close()` flushes, fsyncs, and is safe to call twice).
-    - Create `host/tests/test_csv_logger.py` using real files in `tmp_path` and a fake clock: the header matches `CSV_HEADER` and every measurement column ends in its unit suffix; one row per write with the right values; no flush before 1 s, one flush at 1 s; `os.fsync` is called (monkeypatched counter); `close()` twice doesn't raise and the file contains every row.
+  - [x] 10.1 Implement `csv_logger.py` with its tests
+    - Create `host/power_monitor/csv_logger.py` with `CSV_HEADER`, `CSV_FLUSH_PERIOD_S = 0.5`, and `CsvLogger` (`__init__(stream, clock)`, `open(path)` writes the header, `write(host_time_unix_s, sample)` with 3-decimal host time, `maybe_flush()` calls flush + `os.fsync` when at least 0.5 s has passed, `close()` flushes, fsyncs, and is safe to call twice).
+    - Create `host/tests/test_csv_logger.py` using real files in `tmp_path` and a fake clock: the header matches `CSV_HEADER` and every measurement column ends in its unit suffix; one row per write with the right values; no flush before 0.5 s, one flush at 0.5 s; `os.fsync` is called (monkeypatched counter); `close()` twice doesn't raise and the file contains every row.
     - Comment the why: why `fsync` in addition to `flush` (`flush` only reaches the OS buffer, `fsync` reaches the disk); why `maybe_flush` is called every loop and not only after a write; why integers are written without unit conversion (no precision is lost).
     - _Requirements: 11.1, 11.2, 11.3, 11.4_
 
