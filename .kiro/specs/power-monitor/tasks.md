@@ -83,10 +83,10 @@ Conventions for every sub-task: snake_case functions, UPPER_SNAKE_CASE macros, n
     - Comment the why: what `<` means in a `struct` format (little-endian, standard sizes, no padding); why `encode_frame` validates ranges instead of letting `struct` wrap or error; why reserved flag bits are named and not hidden; why `Sample` is frozen (it can be compared and hashed in tests and can't change after decoding).
     - _Requirements: 7.8, 9.1, 9.8, 13.8, 14.1, 14.2, 14.4_
 
-- [ ] 5. Add the Golden_Vector drift test
+- [x] 5. Add the Golden_Vector drift test
   - _Requirements: 14.3, 14.4_
 
-  - [ ] 5.1 Implement `test_golden_vectors_sync.py`
+  - [x] 5.1 Implement `test_golden_vectors_sync.py`
     - Create `host/tests/test_golden_vectors_sync.py`. It parses the `GVn:` lines in `docs/packet_format.md`, the `GVn_BYTES` arrays in `test/test_frame/test_main.c`, and the `bytes.fromhex(...)` literals in `host/tests/test_protocol.py` (read as text, found in order), then asserts all three sources hold the same vectors in the same order.
     - Also assert: at least two vectors; each is 25 bytes; at least one decodes to negative Current, negative Power, and non-zero `status_flags`; at least one has LSB ≠ MSB in every multi-byte field (`seq`, `timestamp_ms`, `bus_voltage_mv`, `current_ua`, `power_mw`, `energy_uwh`).
     - Each parser fails with a clear message if it finds zero vectors, so a formatting change can't make the test pass trivially.
