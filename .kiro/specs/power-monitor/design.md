@@ -246,6 +246,7 @@ power-monitor/
 │   │   └── cli.py                # argparse, run_session, main
 │   └── tests/                    # pytest + hypothesis (see Testing Strategy)
 └── docs/
+    ├── packet_format.md          # Packet_Spec: Frame layout, CRC-8, Golden_Vectors (Req 14)
     └── verification_report.md    # written during hardware verification (Req 17)
 ```
 
@@ -330,7 +331,7 @@ The INA219 sends each 16-bit register **most significant byte first**. The drive
 
 > **Concept: calibration register.** The INA219 can report current directly: internally it computes `Current_reg = Shunt_reg × CAL / 4096`. The datasheet's constant 0.04096 is that 4096 multiplied by the 10 µV shunt LSB (4096 × 10 µV = 0.04096 V). Setting `Current_reg × Current_LSB` equal to `Shunt_reg × 10 µV / R_shunt` and solving gives `CAL = 0.04096 / (Current_LSB × R_shunt)`.
 
-In integer units, with Current_LSB in µA and R_shunt in mΩ: `0.04096 V / (I·10⁻⁶ A × R·10⁻³ Ω) = 40,960,000 / (I × R)`. Current_LSB is `CURRENT_LSB_UA = SHUNT_ADC_LSB_UV × 1000 / SHUNT_RESISTANCE_MOHM = 10 × 1000 / 100 = 100 µA`. With 100 µA and 100 mΩ, CAL = 4096 exactly. Current register = shunt register, and the INA219's internal multiply introduces no rounding.
+In integer units, with Current_LSB in µA and R_shunt in mΩ: `0.04096 V / (I·10⁻⁶ A × R·10⁻³ Ω) = 40,960,000 / (I × R)`. Current_LSB is `CURRENT_LSB_UA = SHUNT_ADC_LSB_UV × UA_PER_MA / SHUNT_RESISTANCE_MOHM = 10 × 1000 / 100 = 100 µA`. With 100 µA and 100 mΩ, CAL = 4096 exactly. Current register = shunt register, and the INA219's internal multiply introduces no rounding.
 
 ### Scaling_Module (`pm_scaling.h/.c`)
 
@@ -338,17 +339,20 @@ In integer units, with Current_LSB in µA and R_shunt in mΩ: `0.04096 V / (I·1
 #define SHUNT_RESISTANCE_MOHM           100L
 #define SHUNT_ADC_LSB_UV                10L         /* INA219 shunt voltage register LSB (datasheet) */
 #define MAX_EXPECTED_CURRENT_UA         1000000L    /* Rated_Range: +/-1 A */
-/* uV / mOhm = mA, so x1000 gives uA. 10 uV / 100 mOhm = 100 uA, one shunt ADC step. */
-#define CURRENT_LSB_UA                  (SHUNT_ADC_LSB_UV * 1000L / SHUNT_RESISTANCE_MOHM)
+#define UA_PER_MA                       1000L
+#define INA219_CURRENT_REG_MAX_COUNT    32767L      /* 2^15 - 1: largest positive signed 16-bit register value */
+/* uV / mOhm = mA, so x UA_PER_MA gives uA. 10 uV / 100 mOhm = 100 uA, one shunt ADC step. */
+#define CURRENT_LSB_UA                  (SHUNT_ADC_LSB_UV * UA_PER_MA / SHUNT_RESISTANCE_MOHM)
 #define INA219_CAL_NUMERATOR_UA_MOHM    40960000L   /* 0.04096 V expressed in uA * mOhm */
 #define INA219_CAL_VALUE  (INA219_CAL_NUMERATOR_UA_MOHM / (CURRENT_LSB_UA * SHUNT_RESISTANCE_MOHM))
 
-#if ((SHUNT_ADC_LSB_UV * 1000L) % SHUNT_RESISTANCE_MOHM) != 0
-#error "SHUNT_ADC_LSB_UV * 1000 must be divisible by SHUNT_RESISTANCE_MOHM, or CURRENT_LSB_UA is inexact"
+#if ((SHUNT_ADC_LSB_UV * UA_PER_MA) % SHUNT_RESISTANCE_MOHM) != 0
+#error "SHUNT_ADC_LSB_UV * UA_PER_MA must be divisible by SHUNT_RESISTANCE_MOHM, or CURRENT_LSB_UA is inexact"
 #endif
-/* Datasheet: Minimum_LSB = Max_Expected_I / 2^15. The largest positive register value is 2^15 - 1 = 32767. */
-#if (CURRENT_LSB_UA * 32767) < MAX_EXPECTED_CURRENT_UA
-#error "CURRENT_LSB_UA * 32767 < MAX_EXPECTED_CURRENT_UA: current register cannot reach it; lower SHUNT_RESISTANCE_MOHM"
+/* Datasheet: Minimum_LSB = Max_Expected_I / 2^15. The register tops out at INA219_CURRENT_REG_MAX_COUNT
+   counts, so CURRENT_LSB_UA * INA219_CURRENT_REG_MAX_COUNT is the largest positive current it can report. */
+#if (CURRENT_LSB_UA * INA219_CURRENT_REG_MAX_COUNT) < MAX_EXPECTED_CURRENT_UA
+#error "CURRENT_LSB_UA * INA219_CURRENT_REG_MAX_COUNT < MAX_EXPECTED_CURRENT_UA: current register cannot reach it; lower SHUNT_RESISTANCE_MOHM"
 #endif
 #if (INA219_CAL_NUMERATOR_UA_MOHM % (CURRENT_LSB_UA * SHUNT_RESISTANCE_MOHM)) != 0
 #error "CURRENT_LSB_UA * SHUNT_RESISTANCE_MOHM must divide 40960000 exactly, or current scaling is inexact"
@@ -701,7 +705,7 @@ def decode_frame(frame: bytes) -> Sample: ...          # ValueError on bad sync,
 def flag_names(status_flags: int) -> list[str]: ...    # e.g. ["OVERRANGE", "RESERVED_BIT5"]
 ```
 
-`struct` format `<` means little-endian with standard sizes and no padding, so the Python layout matches the Packet_Spec byte for byte.
+`struct` format `<` means little-endian with standard sizes and no padding, so the Python layout matches the Packet_Spec (`docs/packet_format.md`) byte for byte.
 
 **`parser.py`**
 
@@ -711,7 +715,7 @@ class FrameParser:
     def feed(self, data: bytes) -> list[Sample]: ...
 ```
 
-Implements the parsing rules in the Packet_Spec. The internal `bytearray` never holds more than 24 bytes between calls.
+Implements the parsing rules in the Packet_Spec section of this design (the wire format they check is in `docs/packet_format.md`). The internal `bytearray` never holds more than 24 bytes between calls.
 
 **`link_monitor.py`**
 
@@ -875,84 +879,16 @@ A "valid Sample" for encoding means every field is inside the range in the comme
 
 Integers are written as-is so no precision is lost; spreadsheets can convert units.
 
-## Packet_Spec: Frame Format
+## Packet_Spec
 
-This section is the authoritative Packet_Spec (Req 14). Any change to it requires updating the Golden_Vectors, the Python fixture, and the Unity test in the same change; a host test fails if the three disagree.
+The Packet_Spec (Req 14) lives in `docs/packet_format.md`. It is kept in the repository rather than in this design so that it is version-controlled with the code and tests that depend on it. That file holds the byte layout, Status_Flags, CRC-8 parameters, and Golden_Vectors. In summary:
 
-### Layout (25 bytes)
+- Fixed 25-byte Frame: sync bytes `AA 55`, a length byte (25), 21 bytes of fields, and a CRC byte.
+- Multi-byte fields are little-endian; signed fields are two's complement.
+- CRC-8/SMBUS (poly `0x07`, init `0x00`) over bytes 2–23, stored in byte 24.
+- Three Golden_Vectors: GV1 normal, GV2 negative and extreme values, GV3 no sensor.
 
-| Offset | Size | Field | Signed | Unit | Byte order | Notes |
-|---|---|---|---|---|---|---|
-| 0 | 1 | `sync0` | no | – | n/a | `0xAA` |
-| 1 | 1 | `sync1` | no | – | n/a | `0x55` |
-| 2 | 1 | `length` | no | bytes | n/a | `25` (`0x19`): total Frame length including sync and CRC |
-| 3 | 2 | `seq` | no | count | little-endian | +1 per Frame, 65535 → 0; first Frame after reset is 0 |
-| 5 | 4 | `timestamp_ms` | no | ms | little-endian | `millis()` at the Sample; wraps after 2³² ms |
-| 9 | 1 | `status_flags` | no | bit field | n/a | see flag table |
-| 10 | 2 | `bus_voltage_mv` | no | mV | little-endian | multiple of 4 from hardware |
-| 12 | 4 | `current_ua` | yes (two's complement) | µA | little-endian | + = source to load; multiple of 100 from hardware |
-| 16 | 4 | `power_mw` | yes (two's complement) | mW | little-endian | V × I rounded half away from zero |
-| 20 | 4 | `energy_uwh` | yes (two's complement) | µWh | little-endian | net energy, truncated toward zero, ±2,147,483,647 |
-| 24 | 1 | `crc8` | no | – | n/a | CRC-8/SMBUS over bytes 2–23 (22 bytes) |
-
-> **Concept: little-endian.** A multi-byte integer is sent least significant byte first. 5000 = `0x1388` is sent as `88 13`. Both the ATmega328P and the Mac are little-endian, but the format is defined by explicit shifts, not by the CPU, so it would stay correct on any machine.
-
-**Length byte semantics.** `length` is the total Frame length (25), not the payload length. The parser checks it before waiting for the rest of the Frame, so a false sync match inside data (`AA 55` appearing in a field) is usually rejected after 3 bytes instead of 25. It also acts as a crude format marker: a future Frame of a different length is rejected instead of misparsed. Total length was chosen over payload length because it is the number the parser actually needs (bytes to buffer), with no arithmetic.
-
-### Status_Flags
-
-| Bit | Mask | Name | Set when |
-|---|---|---|---|
-| 0 | `0x01` | SENSOR_ERROR | The driver returned non-OK this Sample, or the sensor is being re-initialized. V, I, P are 0. |
-| 1 | `0x02` | OVERRANGE | INA219 OVF bit set, or V > 6000 mV, or \|I\| > 1,000,000 µA. |
-| 2 | `0x04` | ENERGY_SATURATED | The energy accumulator reached its limit (latched until firmware restart). |
-| 3–7 | `0xF8` | reserved | Always 0 from firmware. The host names them `RESERVED_BITn` if seen. |
-
-SENSOR_ERROR and OVERRANGE are never set together, because error Samples carry zero values.
-
-### CRC-8 parameters
-
-| Parameter | Value |
-|---|---|
-| Name | CRC-8/SMBUS (reveng catalogue) |
-| Width | 8 |
-| Polynomial | `0x07` (x⁸ + x² + x + 1) |
-| Initial value | `0x00` |
-| Reflect input / output | false / false |
-| XOR out | `0x00` |
-| Check value (`"123456789"`) | `0xF4` |
-| Coverage | Frame bytes 2 through 23 (length byte through `energy_uwh`); sync bytes excluded |
-
-### Golden_Vectors
-
-Field values:
-
-| Field | GV1 | GV2 | GV3 |
-|---|---|---|---|
-| `seq` | 4660 (`0x1234`) | 65535 (`0xFFFF`) | 0 |
-| `timestamp_ms` | 123,456,789 (`0x075BCD15`) | 4,294,967,196 (`0xFFFFFF9C`) | 100 (`0x00000064`) |
-| `status_flags` | `0x00` | `0x06` (OVERRANGE, ENERGY_SATURATED) | `0x01` (SENSOR_ERROR) |
-| `bus_voltage_mv` | 5000 (`0x1388`) | 3700 (`0x0E74`) | 0 |
-| `current_ua` | 123,500 (`0x0001E26C`) | −1,045,000 (`0xFFF00DF8`) | 0 |
-| `power_mw` | 618 (`0x0000026A`) | −3867 (`0xFFFFF0E5`) | 0 |
-| `energy_uwh` | 7,654,321 (`0x0074CBB1`) | −2,147,483,647 (`0x80000001`) | 0 |
-| `crc8` | `0x77` | `0x6B` | `0x9E` |
-
-Frame bytes (this block is parsed by the drift test; keep the format `GVn:` followed by 25 hex bytes):
-
-```text
-GV1: AA 55 19 34 12 15 CD 5B 07 00 88 13 6C E2 01 00 6A 02 00 00 B1 CB 74 00 77
-GV2: AA 55 19 FF FF 9C FF FF FF 06 74 0E F8 0D F0 FF E5 F0 FF FF 01 00 00 80 6B
-GV3: AA 55 19 00 00 64 00 00 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 9E
-```
-
-What each vector catches:
-
-- **GV1** (normal Sample): every multi-byte field has a least-significant byte different from its most-significant byte, so any byte-order mistake changes the bytes (Req 14.3). Power 5000 mV × 123,500 µA = 617.5 mW exercises rounding up to 618.
-- **GV2** (negative and extreme): negative Current and Power, two flags set, `seq` at its maximum, Timestamp 100 ms before the wrap, and Energy at the negative saturation limit. Sign-extension and signed/unsigned mix-ups show up here. Power 3700 mV × −1,045,000 µA = −3866.5 mW exercises rounding away from zero to −3867. The Current is outside the Rated_Range, consistent with OVERRANGE.
-- **GV3** (no sensor): shaped like the Frames the firmware sends before the INA219 is connected, with all measurement fields zero.
-
-The same bytes are hardcoded in `test/test_frame/test_main.c` and `host/tests/test_protocol.py`. A generated shared file (for example a script that emits a C header and a Python module) was not used: it adds a code-generation step to build and explain, and three 25-byte arrays are small. Instead, `host/tests/test_golden_vectors_sync.py` extracts the `GVn:` lines from this document, the byte arrays from the Unity test file, and the Python fixture, and fails if any differ (Req 14.4). The vectors were computed with a throwaway script and cross-checked with bitwise, table-driven, and polynomial-division CRC implementations, plus a decode round trip and a single-bit-flip rejection check over bytes 2–24.
+This section keeps only the host's parsing rules, because they describe the Frame_Parser implementation rather than the wire format.
 
 ### Parsing rules (Frame_Parser)
 
@@ -1193,6 +1129,8 @@ It loads the library with `ctypes.CDLL`, declares `argtypes`/`restype` for each 
 
 If an overflow happens, the trap kills the Python process (exit 133), which fails loudly but loses hypothesis's shrunk example. The Unity suites include the extreme-value examples (maximum and minimum V, I, and `dt`) so an overflow can also be pinned down with a readable failure there.
 
+**Priority.** These `ctypes`-based property tests (Properties 3, 4, 5, 6, 7, 8, 10) are the lowest-priority work and will be scheduled as the last tasks. The Unity example and boundary tests for the same modules are the baseline and must be done first, so the project is complete and defensible without the `ctypes` tests.
+
 ### Test inventory
 
 | Test | Covers |
@@ -1204,15 +1142,15 @@ If an overflow happens, the trap kills the Python process (exit 133), which fail
 | `test/test_crc8` | `"123456789"` → `0xF4` (7.8); empty input → init value |
 | `test/test_sampler` | First `seq` is 0 (7.6); fail → re-init fail → re-init OK → read OK sequence (2.2–2.5); OVERRANGE example |
 | `test/test_time` | Wrap examples for `pm_elapsed_ms` and `pm_deadline_reached` |
-| `host/tests/test_protocol.py` | GV1–GV3 encode and decode (9.8); CRC check value; constants match the Packet_Spec (14.2) |
+| `host/tests/test_protocol.py` | GV1–GV3 encode and decode (9.8); CRC check value; constants match the Packet_Spec in `docs/packet_format.md` (14.2) |
 | `host/tests/test_parser.py` | Properties 11, 12, 13; examples: Frame split across three reads, valid Frame starting inside a rejected candidate, length-mismatch counted |
 | `host/tests/test_link_monitor.py` | Properties 14, 15; summary contains all four counts (10.3) |
 | `host/tests/test_csv_logger.py` | Header (11.1); Property 16; flush timing with a fake clock (11.3); `close()` is idempotent |
 | `host/tests/test_live_plot.py` | Property 17; refresh cadence with a fake clock and fake backend (12.2) |
 | `host/tests/test_simulator.py` | Property 18; values change over time |
 | `host/tests/test_cli.py` | Defaults and options (13.1); `--simulate` uses `SimulatedSource` and the shared `FrameParser`, never calls `serial.Serial` (13.3, 13.4); no arguments → exit 2 (13.5); open failure names the port (13.6); disconnect closes CSV, prints summary, exits 1 (13.7); Ctrl+C closes CSV (11.4); `--no-plot` passes no plot and importing `cli` does not import matplotlib (checked in a subprocess) (12.3) |
-| `host/tests/test_fw_logic_properties.py` | Properties 3, 4, 5, 6, 7, 8, 10 via `ctypes` |
-| `host/tests/test_golden_vectors_sync.py` | Vectors in this design, the Unity test, and the Python fixture are identical; at least two vectors; one has negative Current, negative Power, and non-zero flags; one has LSB ≠ MSB in every multi-byte field (14.3, 14.4) |
+| `host/tests/test_fw_logic_properties.py` | Properties 3, 4, 5, 6, 7, 8, 10 via `ctypes`; lowest priority, scheduled last, after the Unity baseline tests for the same modules |
+| `host/tests/test_golden_vectors_sync.py` | Vectors in `docs/packet_format.md`, the Unity test, and the Python fixture are identical; at least two vectors; one has negative Current, negative Power, and non-zero flags; one has LSB ≠ MSB in every multi-byte field (14.3, 14.4) |
 | `host/tests/test_firmware_rules.py` | With comments stripped: no `float`/`double` (16.4); no `malloc`/`calloc`/`realloc`/`free(`/`new`/`delete` (16.3); no Arduino headers in `lib/pm_logic` (15.1); `<Wire.h>` only in `ina219_driver.cpp` (1.5); `Serial` only in `uart_driver.cpp` and no `print`/`println` (8.3) |
 | `host/tests/test_compile_time_checks.py` | Runs `cc -fsyntax-only -x c -I src -I lib/pm_logic/src src/pm_config.h` with `-D` overrides: default passes with `SAMPLE_PERIOD_MS` = 100 (6.1); `SAMPLE_RATE_HZ` 0 and 51 fail with a message naming `SAMPLE_RATE_HZ`, 1 and 50 pass (6.2); `UART_BAUD_BPS=9600` with 50 Hz fails (6.3); the 5 ms I2C timeout passes its check (2.1) |
 | `host/tests/test_type_hints.py` | Every function and method in `power_monitor` annotates all parameters (except `self`/`cls`) and its return type (13.8) |

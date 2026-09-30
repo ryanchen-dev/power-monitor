@@ -32,7 +32,7 @@ The INA219 breakout has not been purchased yet, so the Host Tool includes a simu
 - **Native_Test_Environment**: The PlatformIO `native` environment that compiles Logic_Modules for macOS and runs the Unity unit tests.
 - **Sample**: One measurement record: Timestamp, Sequence_Number, Status_Flags, Bus_Voltage, Current, Power, and Energy.
 - **Frame**: The fixed-length binary encoding of one Sample: Sync_Bytes, a length byte, little-endian integer fields, and a CRC-8 checksum.
-- **Packet_Spec**: The section of the design document that defines the Frame layout byte by byte, the CRC-8 parameters, and the Golden_Vectors.
+- **Packet_Spec**: The packet format document at `docs/packet_format.md` that defines the Frame layout byte by byte, the CRC-8 parameters, and the Golden_Vectors.
 - **Golden_Vector**: A documented pair of (Sample field values, exact Frame bytes) used as a shared test fixture by both the Firmware tests and the Host_Tool tests.
 - **Sync_Bytes**: The fixed two-byte pattern that marks the start of a Frame.
 - **Sequence_Number**: An unsigned 16-bit counter in each Frame that increments by one per Frame and wraps from 65535 to 0.
