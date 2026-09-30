@@ -93,7 +93,7 @@ Conventions for every sub-task: snake_case functions, UPPER_SNAKE_CASE macros, n
     - Comment the why: why a text-parsing drift test was chosen over a code generator (no extra build step to explain); why the LSB ≠ MSB check exists (it makes any byte-order mistake change the bytes); why finding zero vectors must fail.
     - _Requirements: 14.3, 14.4_
 
-- [ ] 6. Checkpoint: packet format agrees on both sides
+- [x] 6. Checkpoint: packet format agrees on both sides
   - Ensure all tests pass, ask the user if questions arise.
   - `pio test -e native` and `cd host && python -m pytest` are both green. C and Python produce identical bytes for GV1–GV3, and the drift test passes.
   - _Requirements: 7.7, 9.8, 14.1, 14.4, 15.2, 15.5_
