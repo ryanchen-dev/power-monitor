@@ -111,7 +111,7 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: briefly explain sync-byte resynchronization; why a failed candidate drops only its first byte and not all 25; why the length byte is checked before waiting for the full Frame; why a length mismatch counts as a checksum error (Req 9.2 groups them).
     - _Requirements: 9.1, 9.2, 9.3, 9.4_
 
-  - [ ] 7.2 Write the round-trip property test and shared strategies
+  - [x] 7.2 Write the round-trip property test and shared strategies
     - **Property 11: Encode then parse is the identity**
     - **Validates: Requirements 9.1, 9.5**
     - Create `host/tests/strategies.py` with `valid_samples()`, built from per-field `st.one_of(edge values, full range)`. Edge values: 0, min, max, `0x7FFF`/`0x8000`, 6000 mV, ±1,000,000 µA, `seq` near 65535, Timestamps within 10 s of 2³².

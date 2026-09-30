@@ -1,6 +1,7 @@
 """Example tests for power_monitor.parser (design.md, "Parsing rules (Frame_Parser)")."""
 
 import pytest
+from hypothesis import given
 
 from power_monitor.parser import FrameParser
 from power_monitor.protocol import (
@@ -11,6 +12,7 @@ from power_monitor.protocol import (
     Sample,
     encode_frame,
 )
+from strategies import valid_samples
 
 # Frames are built with encode_frame (checked against the Golden_Vectors in
 # test_protocol.py), so this file has no hand-written Frame bytes to drift.
@@ -140,3 +142,14 @@ def test_buffer_holds_at_most_24_bytes_after_feed(data: bytes, expected_len: int
     parser.feed(data)
     assert buffered_len(parser) == expected_len
     assert buffered_len(parser) <= MAX_BUFFERED_BYTES
+
+
+# Feature: power-monitor, Property 11: Encode then parse is the identity
+# Validates: Requirements 9.1, 9.5
+# The examples above pin down specific cases; this checks that every valid
+# Sample survives the trip, including the edge values strategies.py favors.
+@given(valid_samples())
+def test_encode_then_parse_is_identity(sample: Sample) -> None:
+    parser = FrameParser()
+    assert parser.feed(encode_frame(sample)) == [sample]
+    assert parser.checksum_errors == 0
