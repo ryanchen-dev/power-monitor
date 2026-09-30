@@ -1,5 +1,11 @@
 """Example tests for power_monitor.link_monitor (design.md, "link_monitor.py")."""
 
+from typing import Final, NamedTuple
+
+from hypothesis import given
+from hypothesis import strategies as st
+
+from power_monitor.link_monitor import SEQ_MODULUS
 from power_monitor.link_monitor import LinkMonitor, LinkStats, format_summary
 from power_monitor.protocol import (
     FLAG_ENERGY_SATURATED,
@@ -133,3 +139,102 @@ def test_summary_contains_all_four_labelled_counts() -> None:
     assert "dropped frames=7" in summary
     assert "checksum errors=3" in summary
     assert "device resets=2" in summary
+
+
+# --- Property 14: drop and reset counting ---------------------------------
+
+MAX_RUNS: Final = 4  # one run plus up to three device resets
+MAX_RUN_LEN: Final = 30  # far below 65536, so a run never repeats a seq
+MAX_STEP_MS: Final = 1000  # Timestamp step between Frames in a run: 1..1000 ms
+U32_MAX: Final = 2**32 - 1  # timestamp_ms is a u32 on the wire
+
+# A run spans at most MAX_RUN_LEN steps (the first run may get one extra
+# Frame, see below) and every run starts below the previous run's end, so no
+# Timestamp can go more than this far past the first run's start.
+TIMESTAMP_HEADROOM_MS: Final = MAX_RUNS * MAX_RUN_LEN * MAX_STEP_MS
+
+
+class LinkStream(NamedTuple):
+    samples: list[Sample]  # the Frames that were not removed, in order
+    removed_count: int
+    run_count: int
+
+
+@st.composite
+def link_streams(draw: st.DrawFn) -> LinkStream:
+    """Runs of consecutive seq values separated by resets, some Frames removed."""
+    run_count = draw(st.integers(min_value=1, max_value=MAX_RUNS))
+    samples: list[Sample] = []
+    removed_count = 0
+    prev_last_ts = 0  # last Timestamp of the previous run (unused for run 0)
+
+    for run_index in range(run_count):
+        # Each later reset needs a Timestamp strictly below the run before it.
+        # Keeping every run's start >= the number of resets still to come
+        # leaves 1 ms of room per reset, so the draw below is never empty
+        # (a run stuck at Timestamp 0 would make the next reset impossible).
+        resets_after = run_count - 1 - run_index
+        length = draw(st.integers(min_value=1, max_value=MAX_RUN_LEN))
+
+        if run_index == 0:
+            # Half the draws start within one run length of 65535, so runs
+            # regularly cross the 65535 -> 0 wrap.
+            start_seq = draw(
+                st.one_of(
+                    st.integers(min_value=SEQ_MODULUS - MAX_RUN_LEN, max_value=SEQ_MODULUS - 1),
+                    st.integers(min_value=0, max_value=SEQ_MODULUS - 1),
+                )
+            )
+            start_ts = draw(
+                st.integers(min_value=resets_after, max_value=U32_MAX - TIMESTAMP_HEADROOM_MS)
+            )
+            # A reset right after seq 65535 can't be seen: the new seq 0 is
+            # exactly the expected next seq, so the monitor sees a normal wrap
+            # and counts no reset (design.md, Known limitations, 1 in 65,536).
+            # Only this run can end at 65535 (later runs start at 0 and are
+            # short). Lengthening by one Frame (it then ends at seq 0) avoids
+            # that without rejecting the example, and keeps the wrap crossing.
+            last_seq = (start_seq + length - 1) % SEQ_MODULUS
+            if resets_after > 0 and last_seq == SEQ_MODULUS - 1:
+                length += 1
+        else:
+            # A device reset: seq restarts at 0 and millis() restarts low.
+            start_seq = 0
+            start_ts = draw(st.integers(min_value=resets_after, max_value=prev_last_ts - 1))
+
+        timestamp_ms = start_ts
+        for i in range(length):
+            if i > 0:
+                # Strictly increasing within a run, so a seq 0 reached after
+                # drops across the wrap is (correctly) not taken as a reset.
+                timestamp_ms += draw(st.integers(min_value=1, max_value=MAX_STEP_MS))
+            # Never remove a run's first or last Frame: a loss at a run's edge
+            # looks the same as the reset itself. Losing the last Frame before
+            # a reset: the reset adds zero drops, so that loss can't be
+            # counted. Losing a reset run's first Frame (seq 0): the next
+            # Frame is seq 1, not 0, so no reset is seen and the jump is
+            # counted as drops. The stream's very first and last Frames are
+            # also run edges: the monitor never sees a Frame before or after
+            # them, so losing them would be invisible.
+            is_interior = 0 < i < length - 1
+            if is_interior and draw(st.booleans()):
+                removed_count += 1
+            else:
+                samples.append(make_sample((start_seq + i) % SEQ_MODULUS, timestamp_ms))
+        prev_last_ts = timestamp_ms
+
+    return LinkStream(samples, removed_count, run_count)
+
+
+# Feature: power-monitor, Property 14: Dropped Frames and resets are counted exactly
+# Validates: Requirements 10.1, 10.2
+@given(link_streams())
+def test_drops_and_resets_are_counted_exactly(stream: LinkStream) -> None:
+    monitor = LinkMonitor()
+    for sample in stream.samples:
+        monitor.update(sample)
+    assert monitor.stats == LinkStats(
+        frames_received=len(stream.samples),
+        dropped_frames=stream.removed_count,
+        device_resets=stream.run_count - 1,
+    )

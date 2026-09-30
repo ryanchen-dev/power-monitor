@@ -154,11 +154,11 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
 
   - [x] 9.1 Implement `link_monitor.py` with example tests
     - Create `host/power_monitor/link_monitor.py` with `LinkStats`, `LinkMonitor.update(sample) -> list[str]` (the design's three steps, starting from flags 0), and `format_summary(stats, checksum_errors)`.
-    - Create `host/tests/test_link_monitor.py`: a consecutive stream gives 0 drops; a gap of 3 counts 3; 65535 → 0 is not a drop; 65534 → 1 counts 1; seq 0 with a smaller Timestamp counts one reset and no drops; flag set/clear messages; the summary contains frames received, dropped frames, checksum errors, and device resets.
+    - Create `host/tests/test_link_monitor.py`: a consecutive stream gives 0 drops; a gap of 3 counts 3; 65535 → 0 is not a drop; 65534 → 1 counts 2 (65535 and 0 missing); seq 0 with a smaller Timestamp counts one reset and no drops; flag set/clear messages; the summary contains frames received, dropped frames, checksum errors, and device resets.
     - Comment the why: why the gap uses `% 65536` (modular arithmetic handles the wrap); why a reset needs both seq 0 and a smaller Timestamp; why "cleared" messages are printed even though Req 10.4 doesn't require them (they make Req 17.8 visible); the known 1-in-65,536 blind spot for a reset at seq 65535.
     - _Requirements: 10.1, 10.2, 10.3, 10.4_
 
-  - [ ] 9.2 Write the drop and reset counting property test
+  - [x] 9.2 Write the drop and reset counting property test
     - **Property 14: Dropped Frames and resets are counted exactly**
     - **Validates: Requirements 10.1, 10.2**
     - In `test_link_monitor.py`, build runs of consecutive seq values (random start, increasing Timestamps, crossing 65535 → 0), separated by resets (the next run starts at seq 0 with a smaller Timestamp and the previous seq isn't 65535). Remove random Frames, never the first or last of a run. Assert the drop count and the reset count.
