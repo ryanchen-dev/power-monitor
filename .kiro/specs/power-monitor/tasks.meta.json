@@ -1,0 +1,24 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1.1 Create the firmware scaffold and prove `pio test -e native` runs": [
+      {
+        "executionId": "784056b3-8e24-4bf5-b614-ee3d1667691e",
+        "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
+        "timestamp": 1790777016381
+      }
+    ],
+    "1.2 Create the host scaffold and prove pytest runs": [
+      {
+        "executionId": "784056b3-8e24-4bf5-b614-ee3d1667691e",
+        "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
+        "timestamp": 1790777016475
+      },
+      {
+        "executionId": "784056b3-8e24-4bf5-b614-ee3d1667691e",
+        "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
+        "timestamp": 1790777567718
+      }
+    ]
+  }
+}

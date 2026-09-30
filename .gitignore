@@ -1,0 +1,6 @@
+.pio/
+.venv/
+__pycache__/
+power_log_*.csv
+.hypothesis/
+.DS_Store

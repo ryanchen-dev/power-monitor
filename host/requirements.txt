@@ -1,0 +1,5 @@
+# Exact pins so every machine installs the same versions and test results are reproducible.
+pyserial==3.5
+matplotlib==3.11.2
+pytest==9.1.1
+hypothesis==6.168.3

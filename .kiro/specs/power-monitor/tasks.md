@@ -21,7 +21,7 @@ Conventions for every sub-task: snake_case functions, UPPER_SNAKE_CASE macros, n
 - [ ] 1. Scaffold the firmware and host projects
   - _Requirements: 15.1, 15.2, 15.5_
 
-  - [ ] 1.1 Create the firmware scaffold and prove `pio test -e native` runs
+  - [-] 1.1 Create the firmware scaffold and prove `pio test -e native` runs
     - Create `platformio.ini` exactly as in the design (both environments, pinned platforms, `test_ignore = *` for `uno`, the `-Wall -Wextra` and signed-overflow trap flags for `native`), including its comments.
     - Create `src/`, `lib/pm_logic/src/`, and `test/`. Empty directories get a `.gitkeep`, since git does not track empty directories.
     - Create `lib/pm_logic/src/pm_status.h` with the `pm_status_t` enum from the design, an include guard, and `extern "C"` guards.
@@ -31,7 +31,7 @@ Conventions for every sub-task: snake_case functions, UPPER_SNAKE_CASE macros, n
     - Comment the why: why the `uno` environment ignores tests; what `-fsanitize-trap=signed-integer-overflow` catches and why signed overflow is undefined behavior in C; why `pm_status.h` has `extern "C"` guards (the C++ drivers include C headers without name mangling); why `PM_OK` is 0.
     - _Requirements: 1.4, 8.4, 15.1, 15.2_
 
-  - [ ] 1.2 Create the host scaffold and prove pytest runs
+  - [x] 1.2 Create the host scaffold and prove pytest runs
     - Check `python3 --version` is at least 3.10 (needed for `@dataclass(slots=True)` and `X | None` annotations). If it is older, stop and tell the user.
     - Create `host/requirements.txt` with the exact pins from the design: `pyserial==3.5`, `matplotlib==3.11.2`, `pytest==9.1.1`, `hypothesis==6.168.3`. Create `.venv` and install them.
     - Create `host/power_monitor/__init__.py` (a docstring only).

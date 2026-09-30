@@ -277,6 +277,7 @@ build_flags =
     -Wall
     -Wextra
     ; Signed overflow is undefined behavior in C and usually wraps silently.
+    ; (The standard leaves it undefined so compilers may assume it never happens and optimize on that.)
     ; Trap mode turns it into an immediate crash with no runtime library needed (Req 4.3, 5.4).
     -fsanitize=signed-integer-overflow
     -fsanitize-trap=signed-integer-overflow
