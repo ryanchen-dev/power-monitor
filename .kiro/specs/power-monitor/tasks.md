@@ -102,7 +102,7 @@ Conventions for every sub-task: snake_case functions, UPPER_SNAKE_CASE macros, n
 
 LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipeline needs them: the CLI is how the session starts and stops, and LinkMonitor provides the flag warnings and the exit summary.
 
-- [ ] 7. Implement the FrameParser
+- [x] 7. Implement the FrameParser
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7_
 
   - [x] 7.1 Implement `parser.py` with example tests
@@ -126,7 +126,7 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: why sync bytes are excluded (a corrupted sync is never a candidate, so it's handled as garbage, not as a checksum error); why the CRC detects every single-bit error (the polynomial has more than one term).
     - _Requirements: 9.2, 9.6, 15.5_
 
-  - [ ] 7.4 Write the resynchronization property test
+  - [x] 7.4 Write the resynchronization property test
     - **Property 13: The parser resynchronizes across garbage and split reads**
     - **Validates: Requirements 9.3, 9.4, 9.7**
     - Generate a list of valid Samples, garbage byte strings with no `0xAA` inserted before, between, and after their Frames, and random split points. Feed the chunks in order and assert the exact Samples come back in order with `checksum_errors == 0`.

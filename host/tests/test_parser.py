@@ -186,3 +186,63 @@ def test_single_bit_error_is_rejected_and_counted(sample: Sample, bit: int) -> N
     # >= 1, not == 1: after the bad candidate is rejected, its remaining bytes
     # are rescanned and may hold a false AA 55 in the data, which is counted too.
     assert parser.checksum_errors >= 1
+
+
+MAX_FRAMES = 5
+# A bit over one Frame (25 bytes), so a garbage run can be longer than a Frame.
+MAX_GARBAGE_LEN_BYTES = 30
+# Enough cut points to make many 1-byte and empty reads in a stream of up to
+# 5 Frames plus 6 garbage runs (at most 305 bytes).
+MAX_CUTS = 40
+BYTE_VALUE_COUNT = 256  # a byte takes values 0x00-0xFF
+
+# Why garbage never contains 0xAA: a 0xAA in garbage can start a false AA 55
+# candidate, which the parser rightly rejects and counts as a checksum error.
+# Req 9.7 promises zero errors only for garbage with no sync first byte, so
+# garbage with 0xAA belongs to a different property. The Frames themselves may
+# still hold 0xAA in their data: once the parser is lined up on a real sync,
+# it removes whole Frames, so data bytes are never scanned for a sync.
+# Built from the allowed bytes directly instead of filtering out 0xAA, so
+# hypothesis never has to throw away a drawn example.
+NON_SYNC_BYTES = [b for b in range(BYTE_VALUE_COUNT) if b != SYNC[0]]
+
+
+def garbage() -> st.SearchStrategy[bytes]:
+    """Byte strings (possibly empty) that contain no 0xAA."""
+    return st.lists(st.sampled_from(NON_SYNC_BYTES), max_size=MAX_GARBAGE_LEN_BYTES).map(bytes)
+
+
+@st.composite
+def garbled_streams(draw: st.DrawFn) -> tuple[list[Sample], list[bytes]]:
+    """Samples, and their Frames with garbage around them, cut into reads."""
+    samples = draw(st.lists(valid_samples(), min_size=0, max_size=MAX_FRAMES))
+    # One garbage run before each Frame and one after the last: len + 1 runs.
+    runs = draw(st.lists(garbage(), min_size=len(samples) + 1, max_size=len(samples) + 1))
+    stream = runs[0] + b"".join(encode_frame(s) + run for s, run in zip(samples, runs[1:]))
+
+    # Why random split points: a serial read returns however many bytes have
+    # arrived so far (any count, even 0 on a timeout), so reads don't break on
+    # Frame boundaries. Cutting anywhere checks that the parser doesn't depend
+    # on where reads happen to break. Repeated cuts give empty reads, adjacent
+    # cuts give 1-byte reads, and no cuts gives the whole stream in one read.
+    cuts = sorted(draw(st.lists(st.integers(0, len(stream)), max_size=MAX_CUTS)))
+    bounds = [0, *cuts, len(stream)]
+    chunks = [stream[a:b] for a, b in zip(bounds, bounds[1:])]
+    assert b"".join(chunks) == stream  # guards against a bug in this generator
+    return samples, chunks
+
+
+# Feature: power-monitor, Property 13: The parser resynchronizes across garbage and split reads
+# Validates: Requirements 9.3, 9.4, 9.7
+@given(garbled_streams())
+def test_parser_resynchronizes_across_garbage_and_split_reads(
+    case: tuple[list[Sample], list[bytes]],
+) -> None:
+    samples, chunks = case
+    parser = FrameParser()
+    received: list[Sample] = []
+    for chunk in chunks:
+        received += parser.feed(chunk)
+        assert buffered_len(parser) <= MAX_BUFFERED_BYTES
+    assert received == samples
+    assert parser.checksum_errors == 0
