@@ -58,7 +58,7 @@ Conventions for every sub-task: snake_case functions, UPPER_SNAKE_CASE macros, n
 - [ ] 3. Implement the C Frame_Encoder
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.7, 14.4, 15.3_
 
-  - [ ] 3.1 Implement `pm_frame` with its Golden_Vector Unity tests
+  - [x] 3.1 Implement `pm_frame` with its Golden_Vector Unity tests
     - Create `lib/pm_logic/src/pm_frame.h/.c` with the Frame constants (`PM_FRAME_LEN_BYTES`, sync bytes, CRC offsets), the `PM_FLAG_*` bits, `pm_sample_t`, private `put_u16_le()`/`put_u32_le()`, `pm_frame_encode()`, and `pm_frame_next_seq()`.
     - Create `test/test_frame/test_main.c` with `static const uint8_t GV1_BYTES[PM_FRAME_LEN_BYTES] = {...};` (the same form for GV2 and GV3, so the drift test in 5.1 can parse them) and the matching `pm_sample_t` values from `docs/packet_format.md`.
     - Tests: GV1–GV3 encode byte for byte; a 24-byte buffer returns `PM_ERR_BUFFER_TOO_SMALL` and is left untouched (prefill with a sentinel and compare); with a 26-byte buffer the last byte is left untouched; `pm_frame_next_seq` examples 0 → 1 and 65535 → 0.
