@@ -209,7 +209,7 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
 - [ ] 12. Implement the Live_Plot and wire it in
   - _Requirements: 12.1, 12.2, 12.3_
 
-  - [ ] 12.1 Implement `live_plot.py` with its tests
+  - [x] 12.1 Implement `live_plot.py` with its tests
     - Create `host/power_monitor/live_plot.py` with `PLOT_WINDOW_S = 60.0`, `PLOT_REFRESH_PERIOD_S = 0.5`, a pure `PlotBuffer` (`add(t_s, sample)` drops points older than 60 s; `series()` returns t, V, mA, mW), and `LivePlot(buffer)`. `LivePlot` imports matplotlib inside `__init__`, creates three stacked subplots sharing the x-axis, and has `add(t_s, sample)` (forwards to the buffer, so it fits `PlotSink`) and `maybe_refresh(now_s)` (every 0.5 s: `set_data()`, rescale, x-limits to the last 60 s up to `now_s` (seconds since session start), `plt.pause(0.001)`). If the window is closed, plotting stops without raising.
     - Create `host/tests/test_live_plot.py` using the `Agg` backend and a monkeypatched `plt.pause` counter: `PlotBuffer` drops old points; refresh happens at 0 s, not at 0.2 s, and again at 0.5 s; a closed figure stops refreshes without an exception.
     - Comment the why: why matplotlib is imported lazily (`--no-plot` and tests shouldn't load a GUI toolkit); why `set_data()` on existing lines instead of redrawing (faster); what `plt.pause` does (lets the GUI event loop run); why host time is on the x-axis and not device Timestamps (a device reset doesn't scramble the axis); why the loop is single-threaded (the macOS backend needs the main thread).

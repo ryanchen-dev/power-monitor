@@ -338,6 +338,18 @@
         "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
         "timestamp": 1790824249775
       }
+    ],
+    "12.1 Implement `live_plot.py` with its tests": [
+      {
+        "executionId": "079e82bd-6413-4c90-907f-3f07b58c145e",
+        "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
+        "timestamp": 1790825054203
+      },
+      {
+        "executionId": "079e82bd-6413-4c90-907f-3f07b58c145e",
+        "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
+        "timestamp": 1790825605700
+      }
     ]
   }
 }
