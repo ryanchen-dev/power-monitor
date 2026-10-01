@@ -409,7 +409,7 @@ Overflow analysis for the full representable input domain (Req 4.3):
 | `current_ua` | −2³¹ … 2³¹−1 | 32 bits signed | `int32_t` |
 | `p_nw` | \|p\| ≤ 65,535 × 2³¹ ≈ 1.41 × 10¹⁴ | 48 bits signed | `int64_t` (max 9.22 × 10¹⁸) |
 | `p_nw ± 500,000` | ≈ 1.41 × 10¹⁴ | 48 bits | `int64_t` |
-| `p_mw` | ≤ 1.41 × 10⁸ | 28 bits signed | fits `int32_t` (max 2.15 × 10⁹) |
+| `p_mw` | ≤ 1.41 × 10⁸ | 29 bits signed | fits `int32_t` (max 2.15 × 10⁹) |
 
 In practice (INA219 outputs) `|p| ≤ 32,764 mV × 3,276,800 µA ≈ 1.07 × 10¹¹ nW` (107 W), and inside the Rated_Range `|p| ≤ 6.0 × 10⁹ nW` (6000 mW).
 

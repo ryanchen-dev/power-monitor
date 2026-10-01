@@ -275,10 +275,10 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: why unsigned subtraction is wrap-safe (C defines it modulo 2³²); why `now >= deadline` breaks at the wrap (with an example); why the modular difference works and its 2³¹ ms limit; why comparing the unsigned difference against 2³¹ avoids an implementation-defined cast; why these are `.c` functions and not `static inline` (ctypes needs exported symbols).
     - _Requirements: 5.2, 6.4, 15.3_
 
-- [ ] 17. Implement the Power_Calculator
+- [x] 17. Implement the Power_Calculator
   - _Requirements: 4.1, 4.2, 4.3_
 
-  - [ ] 17.1 Implement `pm_power` with its Unity tests
+  - [x] 17.1 Implement `pm_power` with its Unity tests
     - Create `lib/pm_logic/src/pm_power.h/.c` with `NW_PER_MW` and `pm_power_mw` (64-bit product, one division rounded half away from zero).
     - Create `test/test_power/test_main.c`: zero; Rated_Range corners (6000 mV × ±1,000,000 µA = ±6000 mW); GV1 5000 × 123,500 → 618; GV2 3700 × −1,045,000 → −3867; half-way cases in both signs; 4 mV × 374,900 µA = 1,499,600 nW → 1 mW (two-step rounding would give 2); extremes 65,535 mV × `INT32_MAX` and × `INT32_MIN` run under the overflow trap without crashing and give the exact expected value.
     - Comment the why: why mV × µA is nW; why one rounded division instead of two (the 1,499,600 nW example); how biasing by half in the sign's direction gives half-away-from-zero with C's truncating division; the overflow table (48-bit product in `int64_t`, result fits `int32_t`).
