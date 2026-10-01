@@ -228,10 +228,10 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: why the matplotlib check runs in a subprocess (the test process already imported matplotlib in other tests, so `sys.modules` there proves nothing).
     - _Requirements: 12.1, 12.3, 13.1_
 
-- [ ] 13. Check type hints across the host package
+- [x] 13. Check type hints across the host package
   - _Requirements: 13.8_
 
-  - [ ] 13.1 Implement `test_type_hints.py`
+  - [x] 13.1 Implement `test_type_hints.py`
     - Create `host/tests/test_type_hints.py`, which parses every `host/power_monitor/*.py` with `ast` and asserts every function and method annotates all parameters (except `self`/`cls`) and its return type. It fails with the file, line, and function name, and fails if fewer files are found than expected.
     - Comment the why: why `ast` instead of importing and using `inspect` (no side effects such as importing matplotlib or pyserial); why an empty scan must fail.
     - _Requirements: 13.8_
