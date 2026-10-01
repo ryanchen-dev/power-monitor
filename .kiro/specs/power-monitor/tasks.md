@@ -287,7 +287,7 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
 - [ ] 18. Implement the Energy_Integrator
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 15.4_
 
-  - [ ] 18.1 Implement exact energy integration with its Unity tests
+  - [x] 18.1 Implement exact energy integration with its Unity tests
     - Create `lib/pm_logic/src/pm_energy.h/.c` with `PJ_PER_UWH`, `ENERGY_REPORT_MAX_UWH`, `ENERGY_ACC_LIMIT_PJ`, `pm_energy_state_t`, `pm_energy_init`, `pm_energy_update` (right-endpoint rule, both Samples valid, `pm_elapsed_ms` for dt, exact `int64_t` pJ accumulation), `pm_energy_uwh` (truncated toward zero), and `pm_energy_is_saturated` (always false until 18.2).
     - Create `test/test_energy/test_main.c`: starts at 0 µWh; the first Sample only sets the baseline; 3600 mV × 1000 µA × 1000 ms adds exactly 1 µWh; a positive interval that isn't a whole µWh truncates down; a negative interval decreases Energy and truncates toward zero; Timestamp wrap 4,294,967,196 → 4 integrates 104 ms; an invalid Sample adds nothing and the next valid Sample only re-baselines; dt = 0 adds nothing; 300 h at 6 W (6000 mV × 1,000,000 µA, 1000 ms steps) gives exactly 1,800,000,000 µWh and is not saturated.
     - Comment the why: the pJ unit derivation (mV × µA × ms); why accumulating exact integers means rounding never builds up; the right-endpoint rule and why an interval touching an error Sample is skipped; why OVERRANGE Samples are still integrated; why truncation toward zero; the 300 h capacity table.
