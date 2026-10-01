@@ -299,10 +299,10 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: why the check runs before the multiply (`mag × dt` can exceed `int64_t`); why `mag > floor(room / dt)` is exactly the overflow condition for non-negative integers; why headroom needs `uint64_t` (the distance can reach 2 × limit); why saturation latches instead of resuming (a clipped total is no longer true); why `delta` is added in two halves (`delta ≤ room ≤ 2 × limit` can exceed `INT64_MAX`; each half is ≤ limit, and the intermediate value lies between the old and new `acc_pj`, so neither addition overflows).
     - _Requirements: 5.5, 15.3, 15.4_
 
-- [ ] 19. Implement the sampler
+- [x] 19. Implement the sampler
   - _Requirements: 2.2, 2.3, 2.4, 2.5, 2.6, 5.1, 5.5, 6.5, 7.5, 7.6_
 
-  - [ ] 19.1 Implement `pm_sampler` with its Unity tests
+  - [x] 19.1 Implement `pm_sampler` with its Unity tests
     - Create `lib/pm_logic/src/pm_sampler.h/.c` with `pm_sensor_action_t`, `pm_sampler_t`, `pm_sampler_init`, `pm_sampler_next_action`, and `pm_sampler_finish` following the design's four-row rule table, then energy update, ENERGY_SATURATED, Timestamp, and seq.
     - Create `test/test_sampler/test_main.c`: the first Sample has seq 0; boot unconfigured → REINIT; the sequence READ fail → REINIT fail → REINIT OK (still SENSOR_ERROR, V = I = P = 0) → READ OK (flag clear, scaled values, Power) is followed step by step; every call yields one Sample carrying the given Timestamp; OVERRANGE from the OVF bit and from an over-range current; ENERGY_SATURATED set when the integrator is saturated (poke `energy.acc_pj`); seq wraps 65535 → 0.
     - Comment the why: why this logic lives in the library and not in `main.cpp` (testable without hardware); why a successful re-init still reports SENSOR_ERROR (the INA219 needs one conversion pair before its registers are valid); why SENSOR_ERROR and OVERRANGE are never set together; why a Sample is produced on every call (Req 2.3).
