@@ -1329,6 +1329,9 @@ Out of scope for this design; see the Future Work list in `requirements.md`. Ite
 - **Watchdog timer and I2C bus-recovery sequence** would add periodic configuration read-back, covering the silent INA219 reset case.
 - **Simulator fault injection** would let the host exercise drop, reset, and corruption handling end to end, beyond the parser-level properties.
 - **Host Timestamp unwrapping** would support runs longer than 49.7 days.
+- **Plot gaps for SENSOR_ERROR Samples** would break the trace at those points instead of drawing dips to 0 V and 0 mA.
+- **Graceful plot-window failure** would catch a GUI backend error (for example, no display), close the CSV and the source, and suggest `--no-plot` instead of printing a traceback.
+- **Reset detection without seq 0** (for example, treating a large backwards Timestamp jump as a reset) would handle a reset whose seq 0 Frame was lost; it requires amending Req 10.2.
 
 ## References
 
