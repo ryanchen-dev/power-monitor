@@ -215,7 +215,7 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: why matplotlib is imported lazily (`--no-plot` and tests shouldn't load a GUI toolkit); why `set_data()` on existing lines instead of redrawing (faster); what `plt.pause` does (lets the GUI event loop run); why host time is on the x-axis and not device Timestamps (a device reset doesn't scramble the axis); why the loop is single-threaded (the macOS backend needs the main thread).
     - _Requirements: 12.1, 12.2_
 
-  - [ ] 12.2 Write the plot buffer property test
+  - [x] 12.2 Write the plot buffer property test
     - **Property 17: The plot buffer holds exactly the last 60 seconds**
     - **Validates: Requirements 12.1**
     - In `test_live_plot.py`, for random non-decreasing host times, assert `series()` holds exactly the points at or after latest − 60 s, in arrival order.

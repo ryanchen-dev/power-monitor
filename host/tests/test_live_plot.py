@@ -13,8 +13,12 @@ import matplotlib
 matplotlib.use("Agg")
 
 # The remaining imports deliberately come after matplotlib.use().
+from itertools import accumulate
+
 import matplotlib.pyplot as plt
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from power_monitor.live_plot import PLOT_PAUSE_S, PLOT_WINDOW_S, LivePlot, PlotBuffer
 from power_monitor.protocol import Sample
@@ -161,3 +165,59 @@ def test_closed_figure_stops_refresh_without_reopening(
     live_plot.maybe_refresh(1.0)
     assert len(pause_calls) == 1
     assert plt.get_fignums() == []  # no new figure was created
+
+
+# Enough points to cross the window several times (each increment can be up
+# to 3 windows), while keeping each example quick.
+MAX_PLOT_POINTS = 50
+MAX_GAP_S = 3 * PLOT_WINDOW_S
+MAX_SMALL_STEP_S = 1.0
+
+# Gaps between consecutive host times. All are >= 0, so accumulating them
+# always gives a non-decreasing sequence: no filter or assume() is needed.
+# - 0.0: repeated times (two Samples read in the same loop iteration).
+# - small steps: many points inside one window, like real 10-50 Hz data.
+# - up to 3 windows: long pauses that should empty all but the newest point.
+# - exactly PLOT_WINDOW_S, or two halves that add up to it: puts a point
+#   exactly on the drop boundary. Random floats almost never land there, so
+#   without these a `<=` instead of `<` in PlotBuffer.add would go unnoticed.
+#   (30.0 + 30.0 == 60.0 exactly in binary floating point, so the halves
+#   really do hit the boundary.)
+_increments_s = st.one_of(
+    st.sampled_from([0.0, PLOT_WINDOW_S / 2, PLOT_WINDOW_S]),
+    st.floats(0.0, MAX_SMALL_STEP_S, allow_nan=False, allow_infinity=False),
+    st.floats(0.0, MAX_GAP_S, allow_nan=False, allow_infinity=False),
+)
+
+
+# Feature: power-monitor, Property 17: The plot buffer holds exactly the last 60 seconds
+# Validates: Requirements 12.1
+@given(
+    start_s=st.one_of(
+        st.just(0.0),
+        st.floats(0.0, MAX_GAP_S, allow_nan=False, allow_infinity=False),
+    ),
+    increments_s=st.lists(_increments_s, min_size=1, max_size=MAX_PLOT_POINTS),
+)
+def test_plot_buffer_keeps_exactly_last_window(
+    start_s: float, increments_s: list[float]
+) -> None:
+    times_s = list(accumulate(increments_s, initial=start_s))
+    buffer = PlotBuffer()
+    for t_s in times_s:
+        buffer.add(t_s, SAMPLE)
+
+    # The oracle filters all added times once, against the final threshold.
+    # PlotBuffer instead drops points a little at a time on every add(). The
+    # two agree because times never decrease: every earlier threshold
+    # (t - PLOT_WINDOW_S for an earlier t) is <= the final one, so any point
+    # dropped earlier is also outside the final window, and nothing dropped
+    # can come back. Same expression as live_plot.py, so the float rounding
+    # of the threshold is identical.
+    latest_s = times_s[-1]
+    oldest_kept_s = latest_s - PLOT_WINDOW_S
+    # Inclusive `>=`: a point exactly 60 s old is still "within the most
+    # recent 60 seconds" (Req 12.1), and it sits on the x-axis's left edge
+    # (now - PLOT_WINDOW_S), so it is still on screen.
+    expected_s = [t for t in times_s if t >= oldest_kept_s]
+    assert buffer.series()[0] == expected_s
