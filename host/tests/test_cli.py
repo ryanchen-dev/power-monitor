@@ -10,23 +10,30 @@ maybe_flush(), and close(), so any object with those methods works.
 import csv
 import errno
 import re
+import sys
+import types
 from pathlib import Path
 from typing import Final, TextIO
 
 import pytest
 
+from power_monitor import cli
 from power_monitor.cli import (
     DEFAULT_BAUD_BPS,
     EXIT_RUNTIME_ERROR,
     EXIT_USAGE_ERROR,
     EXIT_USER_STOPPED,
+    SERIAL_READ_TIMEOUT_S,
+    SerialSource,
     build_arg_parser,
+    main,
     run_session,
 )
-from power_monitor.csv_logger import CsvLogger
+from power_monitor.csv_logger import CSV_HEADER, CsvLogger
 from power_monitor.link_monitor import LinkMonitor
 from power_monitor.parser import FrameParser
 from power_monitor.protocol import FLAG_SENSOR_ERROR, Sample, encode_frame
+from power_monitor.simulator import SimulatedSource
 
 FRAME_PERIOD_MS: Final = 100  # the default 10 Hz firmware rate
 FIXED_WALL_TIME_S: Final = 1_700_000_000.0
@@ -340,3 +347,228 @@ def test_no_plot_runs_and_only_reads_mono_clock_at_start() -> None:
     assert status == EXIT_USER_STOPPED
     assert logger.rows == [(FIXED_WALL_TIME_S, sample)]
     assert mono.remaining == 0
+
+
+# ---- SerialSource and main ----
+#
+# No test opens a real serial port. Tests that need pyserial install
+# FakeSerialModule in sys.modules["serial"]: `import serial` returns whatever
+# object is stored there, so SerialSource's lazy import picks up the fake.
+# main() tests also replace cli.run_session (main looks it up as a module
+# global at call time), so the session never starts, nothing sleeps, and the
+# test can inspect exactly what main built.
+
+FAKE_PORT: Final = "/dev/cu.fake"
+
+
+class FakeSerialException(OSError):
+    """Stands in for serial.SerialException, which also subclasses OSError."""
+
+
+class FakeSerial:
+    """A serial.Serial look-alike: records how it was opened, read, and closed."""
+
+    def __init__(self, open_kwargs: dict[str, object]) -> None:
+        self.open_kwargs = open_kwargs
+        self.in_waiting = 0
+        self.read_sizes: list[int] = []
+        self.closed = False
+
+    def read(self, size: int) -> bytes:
+        self.read_sizes.append(size)
+        # Like the real port: everything waiting, or b"" after a timeout.
+        return bytes(min(size, self.in_waiting))
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class FakeSerialModule(types.ModuleType):
+    """Just enough of the `serial` module for SerialSource."""
+
+    # Same values as pyserial 3.5.
+    EIGHTBITS = 8
+    PARITY_NONE = "N"
+    STOPBITS_ONE = 1
+
+    def __init__(self, open_error: Exception | None = None) -> None:
+        super().__init__("serial")
+        self.opened: list[FakeSerial] = []
+        self._open_error = open_error
+
+    # Capitalized to match pyserial's class name: SerialSource calls serial.Serial(...).
+    def Serial(self, **kwargs: object) -> FakeSerial:  # noqa: N802
+        if self._open_error is not None:
+            raise self._open_error
+        port = FakeSerial(kwargs)
+        self.opened.append(port)
+        return port
+
+
+def install_fake_serial(
+    monkeypatch: pytest.MonkeyPatch, open_error: Exception | None = None
+) -> FakeSerialModule:
+    fake = FakeSerialModule(open_error)
+    monkeypatch.setitem(sys.modules, "serial", fake)
+    return fake
+
+
+class CapturedSession:
+    """Replaces cli.run_session: records its arguments and returns at once."""
+
+    def __init__(self) -> None:
+        self.args: tuple[object, ...] | None = None
+
+    def __call__(self, *args: object) -> int:
+        self.args = args
+        # The real run_session closes the CSV in its finally block; do the
+        # same so no file is left open.
+        logger = args[3]
+        assert isinstance(logger, CsvLogger)
+        logger.close()
+        return EXIT_USER_STOPPED
+
+
+@pytest.fixture
+def captured_session(monkeypatch: pytest.MonkeyPatch) -> CapturedSession:
+    captured = CapturedSession()
+    monkeypatch.setattr(cli, "run_session", captured)
+    return captured
+
+
+def test_serial_source_opens_8n1_reads_available_bytes_and_closes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = install_fake_serial(monkeypatch)
+
+    source = SerialSource(FAKE_PORT, 9600)
+
+    (port,) = fake.opened
+    assert port.open_kwargs == {
+        "port": FAKE_PORT,
+        "baudrate": 9600,
+        "bytesize": FakeSerialModule.EIGHTBITS,
+        "parity": FakeSerialModule.PARITY_NONE,
+        "stopbits": FakeSerialModule.STOPBITS_ONE,
+        "timeout": SERIAL_READ_TIMEOUT_S,
+    }
+    assert SERIAL_READ_TIMEOUT_S == 0.05
+    # Nothing waiting: asks for 1 byte (so the real port blocks up to the
+    # timeout) and gets b"". Seven waiting: asks for all seven.
+    assert source.read() == b""
+    port.in_waiting = 7
+    assert len(source.read()) == 7
+    assert port.read_sizes == [1, 7]
+
+    source.close()
+    assert port.closed
+
+
+def test_simulate_builds_simulated_source_without_importing_serial(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, captured_session: CapturedSession
+) -> None:
+    # Removed first (and restored by monkeypatch afterwards) so the check
+    # holds even if an earlier test or plugin already imported pyserial.
+    monkeypatch.delitem(sys.modules, "serial", raising=False)
+    csv_path = tmp_path / "log.csv"
+
+    status = main(["--simulate", "--csv", str(csv_path)])
+
+    assert status == EXIT_USER_STOPPED
+    assert "serial" not in sys.modules
+    assert captured_session.args is not None
+    assert isinstance(captured_session.args[0], SimulatedSource)
+    # The CSV was created with its header before the session started.
+    assert read_rows(csv_path) == [list(CSV_HEADER)]
+
+
+@pytest.mark.parametrize(
+    ("source_args", "source_type"),
+    [(["--simulate"], SimulatedSource), (["--port", FAKE_PORT], SerialSource)],
+    ids=["simulate", "port"],
+)
+def test_both_sources_feed_a_frame_parser_with_no_plot(
+    source_args: list[str],
+    source_type: type,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    captured_session: CapturedSession,
+) -> None:
+    # Installed for both cases; --simulate simply never touches it.
+    install_fake_serial(monkeypatch)
+
+    main([*source_args, "--csv", str(tmp_path / "log.csv")])
+
+    assert captured_session.args is not None
+    source, parser, monitor, logger, plot = captured_session.args
+    assert isinstance(source, source_type)
+    # Simulated bytes go through the same FrameParser as serial bytes (Req 13.3).
+    assert isinstance(parser, FrameParser)
+    assert isinstance(monitor, LinkMonitor)
+    assert isinstance(logger, CsvLogger)
+    assert plot is None
+
+
+@pytest.mark.parametrize(
+    ("extra_args", "open_error"),
+    [
+        ([], FakeSerialException(f"could not open port {FAKE_PORT}")),
+        # pyserial rejects some baud rates with ValueError, not SerialException.
+        (["--baud", "0"], ValueError("Not a valid baudrate: 0")),
+    ],
+    ids=["serial-exception", "bad-baud"],
+)
+def test_port_open_failure_returns_1_names_port_and_creates_no_csv(
+    extra_args: list[str],
+    open_error: Exception,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    captured_session: CapturedSession,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    install_fake_serial(monkeypatch, open_error)
+    csv_path = tmp_path / "log.csv"
+
+    status = main(["--port", FAKE_PORT, *extra_args, "--csv", str(csv_path)])
+
+    assert status == EXIT_RUNTIME_ERROR
+    assert capsys.readouterr().err == (
+        f"error: cannot open serial port {FAKE_PORT}: {open_error}\n"
+    )
+    # The port is opened before the CSV, so a retry with the same path works.
+    assert not csv_path.exists()
+    assert captured_session.args is None
+
+
+@pytest.mark.parametrize("case", ["missing-dir", "existing-file"])
+def test_csv_open_failure_returns_1_names_path_and_closes_source(
+    case: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    captured_session: CapturedSession,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # "Unwritable" is a path whose directory doesn't exist (FileNotFoundError).
+    # That fails the same way for every user, unlike a chmod'ed directory,
+    # which root could still write to.
+    if case == "missing-dir":
+        csv_path = tmp_path / "no_such_dir" / "log.csv"
+    else:
+        csv_path = tmp_path / "log.csv"
+        csv_path.write_text("earlier log\n", encoding="utf-8")
+    # --port with the fake module, not --simulate: SimulatedSource.close()
+    # does nothing, while FakeSerial records the close(), so this checks that
+    # a real open port would be released.
+    fake = install_fake_serial(monkeypatch)
+
+    status = main(["--port", FAKE_PORT, "--csv", str(csv_path)])
+
+    assert status == EXIT_RUNTIME_ERROR
+    err = capsys.readouterr().err
+    assert err.startswith(f"error: cannot open CSV file {csv_path}: ")
+    (port,) = fake.opened
+    assert port.closed
+    assert captured_session.args is None
+    if case == "existing-file":
+        # Mode "x": the earlier log is left untouched.
+        assert csv_path.read_text(encoding="utf-8") == "earlier log\n"

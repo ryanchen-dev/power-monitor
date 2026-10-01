@@ -319,6 +319,25 @@
         "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
         "timestamp": 1790823211442
       }
+    ],
+    "11.2 Implement `main`, `SerialSource`, and `__main__.py` with their tests": [
+      {
+        "executionId": "58099cc9-aa29-42d6-a4ad-26a55a3b59ca",
+        "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
+        "timestamp": 1790823821702
+      },
+      {
+        "executionId": "58099cc9-aa29-42d6-a4ad-26a55a3b59ca",
+        "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
+        "timestamp": 1790824249695
+      }
+    ],
+    "11. Implement the CLI and wire the pipeline": [
+      {
+        "executionId": "58099cc9-aa29-42d6-a4ad-26a55a3b59ca",
+        "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
+        "timestamp": 1790824249775
+      }
     ]
   }
 }

@@ -188,7 +188,7 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: why the tolerance is 1 ms (the column has 3 decimals).
     - _Requirements: 11.2, 15.5_
 
-- [ ] 11. Implement the CLI and wire the pipeline
+- [x] 11. Implement the CLI and wire the pipeline
   - _Requirements: 8.1, 10.3, 10.4, 11.3, 11.4, 13.1, 13.3, 13.4, 13.5, 13.6, 13.7_
 
   - [x] 11.1 Implement `build_arg_parser` and `run_session` with their tests
@@ -198,7 +198,7 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: what a `typing.Protocol` is (structural typing: any object with those methods fits); why `PlotSink` is a Protocol here (`run_session` doesn't depend on `live_plot.py`, which comes in 12.1, and tests can pass a fake); why cleanup is in `finally`; why catching `OSError` also catches pyserial's `SerialException` (it subclasses `OSError`, so `cli` needn't import `serial` here); the meaning of exit codes 0, 1, and 2.
     - _Requirements: 10.3, 10.4, 11.3, 11.4, 13.1, 13.5, 13.7_
 
-  - [ ] 11.2 Implement `main`, `SerialSource`, and `__main__.py` with their tests
+  - [x] 11.2 Implement `main`, `SerialSource`, and `__main__.py` with their tests
     - In `cli.py`, add `SerialSource` (imports `serial` only when constructed; opens 8N1 at the given baud with a 50 ms timeout; `read()` returns the available bytes; `close()`). Add `main(argv) -> int`, which builds the source (`SimulatedSource` for `--simulate`, `SerialSource` for `--port`), `FrameParser`, `LinkMonitor`, and `CsvLogger`, and calls `run_session` with `plot=None` for now. On a port open failure it prints `error: cannot open serial port <PORT>: <reason>` and returns 1; on an unwritable or existing CSV path it prints `error: cannot open CSV file <PATH>: <reason>` and returns 1.
     - Create `host/power_monitor/__main__.py` containing `raise SystemExit(main())`.
     - Extend `test_cli.py`: `--simulate` builds a `SimulatedSource` and `serial` is never imported (check `sys.modules`); a fake `serial` module whose `Serial()` raises makes `main` return 1 with the port name in stderr; an unwritable or existing CSV path returns 1; `--simulate` feeds the same `FrameParser` class used for serial input (monkeypatch `run_session` to capture its arguments).
