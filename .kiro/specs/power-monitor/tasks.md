@@ -324,10 +324,10 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: why `#if`/`#error` (works the same in C and C++ and names the constant); why the UART check multiplies both sides by 100 instead of dividing (integer-only preprocessor math); why `#ifndef` guards allow `-D` overrides; that `SAMPLE_PERIOD_MS` truncates for rates that don't divide 1000; why the 5 ms timeout is below the 20 ms period.
     - _Requirements: 2.1, 6.1, 6.2, 6.3, 16.5_
 
-- [ ] 22. Implement the UART_Driver
+- [x] 22. Implement the UART_Driver
   - _Requirements: 8.1, 8.2, 8.3, 8.4_
 
-  - [ ] 22.1 Implement `uart_driver.h/.cpp`
+  - [x] 22.1 Implement `uart_driver.h/.cpp`
     - Create `src/uart_driver.h` (no Arduino includes, `extern "C"` guards) and `src/uart_driver.cpp` with `uart_init()` (`Serial.begin(UART_BAUD_BPS, SERIAL_8N1)`, returns `PM_OK`) and `uart_write_frame()`: it returns `PM_ERR_UART_BUSY` without writing if `Serial.availableForWrite() < len`, and `PM_ERR_UART_WRITE` if `Serial.write()` accepts fewer bytes.
     - Run `pio run -e uno`: the driver compiles, but linking fails with undefined `setup`/`loop` until `main.cpp` exists in 24.1. Native and host tests stay green.
     - Comment the why: why the write is non-blocking (a blocked write would delay the next Sample); why 63 of 64 ring-buffer bytes are usable; why `uart_init` returns a status even with no failure path; why there's no `Serial.print` anywhere (only Frames go on the wire, and it saves about 1 KB of flash); the 117,647-baud note and why both ends match.
