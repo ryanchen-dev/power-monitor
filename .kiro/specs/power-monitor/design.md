@@ -672,6 +672,7 @@ void loop() {
 #endif
 #define UART_BITS_PER_BYTE      10        /* start + 8 data + stop */
 #define UART_MAX_LOAD_PERCENT   50
+#define PERCENT_PER_WHOLE       100       /* converts a ratio to a percent */
 
 #define I2C_CLOCK_HZ            100000UL
 #define I2C_TIMEOUT_US          5000UL
@@ -680,7 +681,7 @@ void loop() {
 #if (SAMPLE_RATE_HZ < SAMPLE_RATE_MIN_HZ) || (SAMPLE_RATE_HZ > SAMPLE_RATE_MAX_HZ)
 #error "SAMPLE_RATE_HZ must be between 1 and 50"
 #endif
-#if (PM_FRAME_LEN_BYTES * UART_BITS_PER_BYTE * SAMPLE_RATE_HZ * 100) > (UART_BAUD_BPS * UART_MAX_LOAD_PERCENT)
+#if (PM_FRAME_LEN_BYTES * UART_BITS_PER_BYTE * SAMPLE_RATE_HZ * PERCENT_PER_WHOLE) > (UART_BAUD_BPS * UART_MAX_LOAD_PERCENT)
 #error "Frame traffic exceeds 50% of the UART bit rate: lower SAMPLE_RATE_HZ or raise UART_BAUD_BPS"
 #endif
 #if I2C_TIMEOUT_US >= (US_PER_S / SAMPLE_RATE_MAX_HZ)

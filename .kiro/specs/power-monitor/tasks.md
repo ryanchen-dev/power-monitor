@@ -315,10 +315,10 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
 
 ### Slice 4: Firmware on the Uno
 
-- [ ] 21. Add compile-time configuration
+- [x] 21. Add compile-time configuration
   - _Requirements: 2.1, 6.1, 6.2, 6.3_
 
-  - [ ] 21.1 Implement `pm_config.h` and `test_compile_time_checks.py`
+  - [x] 21.1 Implement `pm_config.h` and `test_compile_time_checks.py`
     - Create `src/pm_config.h` as in the design: overridable `SAMPLE_RATE_HZ` (default 10) and `UART_BAUD_BPS`, named limits and unit constants, `SAMPLE_PERIOD_MS`, I2C settings, and the three `#error` checks.
     - Create `host/tests/test_compile_time_checks.py`, which runs `cc -fsyntax-only` from the repo root with `-I src -I lib/pm_logic/src` and `-D` overrides. The defaults pass, and a stdin snippet `#include "pm_config.h"` plus `_Static_assert(SAMPLE_PERIOD_MS == 100, ...)` compiles (`-std=c11 -x c -`). `SAMPLE_RATE_HZ=0` and `=51` fail with `SAMPLE_RATE_HZ` in stderr; `=1` and `=50` pass. `UART_BAUD_BPS=9600` with `SAMPLE_RATE_HZ=50` fails with the UART message. A `_Static_assert(I2C_TIMEOUT_US < US_PER_S / SAMPLE_RATE_MAX_HZ, ...)` snippet passes.
     - Comment the why: why `#if`/`#error` (works the same in C and C++ and names the constant); why the UART check multiplies both sides by 100 instead of dividing (integer-only preprocessor math); why `#ifndef` guards allow `-D` overrides; that `SAMPLE_PERIOD_MS` truncates for rates that don't divide 1000; why the 5 ms timeout is below the 20 ms period.
