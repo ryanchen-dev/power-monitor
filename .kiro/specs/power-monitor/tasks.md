@@ -333,7 +333,7 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: why the write is non-blocking (a blocked write would delay the next Sample); why 63 of 64 ring-buffer bytes are usable; why `uart_init` returns a status even with no failure path; why there's no `Serial.print` anywhere (only Frames go on the wire, and it saves about 1 KB of flash); the 117,647-baud note and why both ends match.
     - _Requirements: 8.1, 8.2, 8.3, 8.4_
 
-- [ ] 23. Implement the INA219_Driver
+- [x] 23. Implement the INA219_Driver
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 2.1_
 
   - [x] 23.1 Write the driver header and check the configuration value
@@ -348,7 +348,7 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: why the INA219 register byte order (MSB first) is independent of the Frame byte order; why the timeout flag is cleared first (a stale flag would misclassify a later failure); why `reset_with_timeout = true`; that the Wire timeout is per wait loop, so a pathological transaction can take about 10 ms; each status mapping.
     - _Requirements: 1.4, 1.5, 2.1_
 
-  - [ ] 23.3 Implement `ina219_configure` and `ina219_read`
+  - [x] 23.3 Implement `ina219_configure` and `ina219_read`
     - In `ina219_driver.cpp`, `ina219_configure()` writes `INA219_CONFIG_VALUE` and `INA219_CAL_VALUE` and reads both back (`PM_ERR_SENSOR_VERIFY` on mismatch). `ina219_read()` reads the bus register, then the current register, into `pm_raw_reading_t`, returning at the first failure.
     - Run `pio run -e uno`: compiles, with the link still expected to fail until 24.1.
     - Comment the why: why the read-back (a device that ACKs but didn't keep the settings); why the driver stops at the first failure and never retries (bounds the worst-case Sample time; the re-init policy lives in `pm_sampler`).

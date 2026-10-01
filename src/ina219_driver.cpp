@@ -1,9 +1,13 @@
 /* INA219_Driver: register-level access to the INA219 over the Arduino Wire
  * library (Req 1.4, 1.5, 2.1). The only file that includes <Wire.h>.
  *
- * Each function returns at the first failure and never retries. One Sample
- * therefore waits on at most one aborted transaction, and the re-init policy
- * lives in pm_sampler, where it is unit tested. */
+ * Why each function stops at the first failure and never retries: it bounds
+ * the worst-case Sample time. After one failed transaction the rest are
+ * skipped, so one Sample waits on at most one aborted transaction (about 5 ms,
+ * about 10 ms pathologically) and stays inside the 20 ms period at 50 Hz. A
+ * retry loop here would multiply that bound. Recovery is still needed, but it
+ * happens once per Sample_Period, not within one: the re-init policy lives in
+ * pm_sampler, where it is unit tested without hardware. */
 
 #include "ina219_driver.h"
 
@@ -161,5 +165,80 @@ pm_status_t ina219_bus_begin(void)
 
     /* None of these calls can fail (they only set registers), but every
      * hardware function returns a status, the same rule as uart_init(). */
+    return PM_OK;
+}
+
+/* Writes CONFIG and CAL, then reads both back. Returns at the first failure.
+ *
+ * Why the read-back: a write that is ACKed is not proof that the settings
+ * stuck. A glitch during the write, or a part that ACKs but didn't latch the
+ * value, would leave the chip running on defaults (CAL = 0 after a reset, so
+ * Current reads 0 A) with no I2C error at all. Reading both registers back
+ * turns that silent failure into PM_ERR_SENSOR_VERIFY, so the Sample is
+ * flagged SENSOR_ERROR and pm_sampler retries next period. */
+pm_status_t ina219_configure(void)
+{
+    const uint16_t config_value = (uint16_t)INA219_CONFIG_VALUE;   /* 0x119F */
+
+    /* Exact conversion: the fourth #error check in pm_scaling.h requires
+     * INA219_CAL_VALUE to be even and between 2 and 0xFFFE, so it fits
+     * uint16_t unchanged. */
+    const uint16_t cal_value = (uint16_t)INA219_CAL_VALUE;          /* 4096 */
+
+    pm_status_t status = write_reg16((uint8_t)INA219_REG_CONFIG, config_value);
+    if (status != PM_OK) {
+        return status;
+    }
+    status = write_reg16((uint8_t)INA219_REG_CALIBRATION, cal_value);
+    if (status != PM_OK) {
+        return status;
+    }
+
+    uint16_t config_readback = 0u;
+    status = read_reg16((uint8_t)INA219_REG_CONFIG, &config_readback);
+    if (status != PM_OK) {
+        return status;
+    }
+    if ((uint16_t)config_readback != (uint16_t)config_value) {
+        return PM_ERR_SENSOR_VERIFY;
+    }
+
+    /* The datasheet makes calibration bit 0 read-only zero: the chip stores
+     * an odd value as value - 1. This comparison can only match because CAL
+     * is even; an odd CAL would fail verification on every attempt, and the
+     * sensor would never leave SENSOR_ERROR. The same pm_scaling.h check
+     * rules that out at build time. */
+    uint16_t cal_readback = 0u;
+    status = read_reg16((uint8_t)INA219_REG_CALIBRATION, &cal_readback);
+    if (status != PM_OK) {
+        return status;
+    }
+    if ((uint16_t)cal_readback != (uint16_t)cal_value) {
+        return PM_ERR_SENSOR_VERIFY;
+    }
+    return PM_OK;
+}
+
+/* Reads the bus voltage register, then the current register (Req 1.3).
+ * Returns at the first failure. Both registers are read into locals and *out
+ * is written only when both reads succeed, the same contract as read_reg16,
+ * so a caller can never see a half-updated reading with a bus value from
+ * this Sample and a current value from an earlier one. */
+pm_status_t ina219_read(pm_raw_reading_t *out)
+{
+    uint16_t bus_reg = 0u;
+    pm_status_t status = read_reg16((uint8_t)INA219_REG_BUS_VOLTAGE, &bus_reg);
+    if (status != PM_OK) {
+        return status;
+    }
+
+    uint16_t current_reg = 0u;
+    status = read_reg16((uint8_t)INA219_REG_CURRENT, &current_reg);
+    if (status != PM_OK) {
+        return status;
+    }
+
+    out->bus_reg = bus_reg;
+    out->current_reg = current_reg;
     return PM_OK;
 }
