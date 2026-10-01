@@ -342,7 +342,7 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: briefly explain the PGA and why /4 (fits 100 mV at 1 A with headroom, better offset than /8); why BRNG 16 V (smallest range covering 6 V; LSB is 4 mV either way); how each field lands at its bit position; why the header is Arduino-free (so a native test can check the value); why a relative include path (`platformio.ini` stays as designed, and `test_build_src = no` only stops `.cpp` compilation, not header includes).
     - _Requirements: 1.1, 1.2, 16.5_
 
-  - [ ] 23.2 Implement the bus setup and register helpers
+  - [x] 23.2 Implement the bus setup and register helpers
     - Create `src/ina219_driver.cpp` with `ina219_bus_begin()` (`Wire.begin()`, `Wire.setClock(I2C_CLOCK_HZ)`, `Wire.setWireTimeout(I2C_TIMEOUT_US, true)`) and private `write_reg16()`/`read_reg16()`. The helpers send and reassemble registers MSB first, clear the timeout flag before each transaction, and map Wire results to status codes per the design table.
     - Run `pio run -e uno`: compiles, with the link still expected to fail until 24.1.
     - Comment the why: why the INA219 register byte order (MSB first) is independent of the Frame byte order; why the timeout flag is cleared first (a stale flag would misclassify a later failure); why `reset_with_timeout = true`; that the Wire timeout is per wait loop, so a pathological transaction can take about 10 ms; each status mapping.
