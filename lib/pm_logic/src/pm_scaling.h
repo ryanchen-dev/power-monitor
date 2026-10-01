@@ -73,9 +73,15 @@ extern "C" {
 #endif
 /* Protects the register write: CAL is a 16-bit register whose bit 0 is
  * read-only zero, so an odd value would be stored as value - 1 (and fail the
- * driver's read-back), and anything above 0xFFFE cannot be stored at all. */
-#if (INA219_CAL_VALUE > 0xFFFE) || ((INA219_CAL_VALUE % 2) != 0)
-#error "INA219_CAL_VALUE must be even and fit in 16 bits (calibration bit 0 is read-only zero)"
+ * driver's read-back), and anything above 0xFFFE cannot be stored at all.
+ * The lower bound matters too. A negative CAL (for example from a sign typo
+ * in a constant) converted to uint16_t becomes a large even register value:
+ * -4096 becomes 0xF000. The chip stores it, the read-back matches, and every
+ * current reading is silently wrong. A CAL of 0 makes every current read 0 A.
+ * Together the three conditions guarantee that the value fits the 16-bit
+ * calibration register, bit 0 included. */
+#if (INA219_CAL_VALUE <= 0) || (INA219_CAL_VALUE > 0xFFFE) || ((INA219_CAL_VALUE % 2) != 0)
+#error "INA219_CAL_VALUE must be even and between 2 and 0xFFFE (16-bit calibration register, bit 0 is read-only zero)"
 #endif
 
 /* Bus voltage register. No L suffixes needed: the largest bus value is

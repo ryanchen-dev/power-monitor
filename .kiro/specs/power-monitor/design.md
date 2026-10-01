@@ -360,8 +360,8 @@ In integer units, with Current_LSB in µA and R_shunt in mΩ: `0.04096 V / (I·1
 #if (INA219_CAL_NUMERATOR_UA_MOHM % (CURRENT_LSB_UA * SHUNT_RESISTANCE_MOHM)) != 0
 #error "CURRENT_LSB_UA * SHUNT_RESISTANCE_MOHM must divide 40960000 exactly, or current scaling is inexact"
 #endif
-#if (INA219_CAL_VALUE > 0xFFFE) || ((INA219_CAL_VALUE % 2) != 0)
-#error "INA219_CAL_VALUE must be even and fit in 16 bits (calibration bit 0 is read-only zero)"
+#if (INA219_CAL_VALUE <= 0) || (INA219_CAL_VALUE > 0xFFFE) || ((INA219_CAL_VALUE % 2) != 0)
+#error "INA219_CAL_VALUE must be even and between 2 and 0xFFFE (16-bit calibration register, bit 0 is read-only zero)"
 #endif
 
 #define BUS_VOLTAGE_LSB_MV          4
