@@ -308,7 +308,7 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: why this logic lives in the library and not in `main.cpp` (testable without hardware); why a successful re-init still reports SENSOR_ERROR (the INA219 needs one conversion pair before its registers are valid); why SENSOR_ERROR and OVERRANGE are never set together; why a Sample is produced on every call (Req 2.3).
     - _Requirements: 2.2, 2.3, 2.4, 2.5, 2.6, 5.1, 5.5, 6.5, 7.5, 7.6, 15.3_
 
-- [ ] 20. Checkpoint: firmware logic is green on the Mac
+- [x] 20. Checkpoint: firmware logic is green on the Mac
   - Ensure all tests pass, ask the user if questions arise.
   - `pio test -e native` runs `test_crc8`, `test_frame`, `test_scaling`, `test_time`, `test_power`, `test_energy`, and `test_sampler`, all green, with the overflow trap enabled.
   - _Requirements: 15.1, 15.2, 15.3, 15.4_
