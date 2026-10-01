@@ -246,7 +246,7 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
 - [ ] 15. Implement the Scaling_Module
   - _Requirements: 1.2, 2.6, 3.1, 3.2, 3.3, 3.4, 3.5, 16.5_
 
-  - [ ] 15.1 Implement `pm_scaling` with its Unity tests
+  - [x] 15.1 Implement `pm_scaling` with its Unity tests
     - Create `lib/pm_logic/src/pm_scaling.h/.c` with every constant from the design (`SHUNT_RESISTANCE_MOHM`, `SHUNT_ADC_LSB_UV`, `MAX_EXPECTED_CURRENT_UA`, `UA_PER_MA`, `INA219_CURRENT_REG_MAX_COUNT`, derived `CURRENT_LSB_UA`, `INA219_CAL_NUMERATOR_UA_MOHM`, `INA219_CAL_VALUE`, bus register constants, Rated_Range limits), the four `#error` checks, `pm_raw_reading_t`, and `pm_scale_bus_voltage_mv`, `pm_scale_current_ua` (explicit two's-complement decode), `pm_bus_math_overflow`, and `pm_is_overrange`.
     - Create `test/test_scaling/test_main.c`: `CURRENT_LSB_UA == 100`; `INA219_CAL_VALUE == 4096`; bus `0x0000` → 0 mV, `0x2710` → 5000 mV, `0xFFF8` → 32764 mV, and the CNVR and OVF bits don't change the voltage; OVF is detected; current `0x0000` → 0, `0x7FFF` → 3,276,700 µA, `0x8000` → −3,276,800 µA, `0xFFFF` → −100 µA; overrange boundaries 6000 mV in, 6004 out, ±1,000,000 µA in, ±1,000,100 out.
     - Comment the why: briefly explain fixed point and the calibration register formula in integer units; why `L` suffixes are needed (`int` is 16 bits on AVR); why `CURRENT_LSB_UA` is derived from the shunt ADC step (a finer LSB adds no resolution); what each `#error` protects against; why the explicit `raw >= 0x8000` decode instead of an `int16_t` cast (implementation-defined in C99); why boundary values count as in range.
