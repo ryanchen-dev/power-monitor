@@ -284,7 +284,7 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: why mV × µA is nW; why one rounded division instead of two (the 1,499,600 nW example); how biasing by half in the sign's direction gives half-away-from-zero with C's truncating division; the overflow table (48-bit product in `int64_t`, result fits `int32_t`).
     - _Requirements: 4.1, 4.2, 4.3, 15.3_
 
-- [ ] 18. Implement the Energy_Integrator
+- [x] 18. Implement the Energy_Integrator
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 15.4_
 
   - [x] 18.1 Implement exact energy integration with its Unity tests
@@ -293,10 +293,10 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: the pJ unit derivation (mV × µA × ms); why accumulating exact integers means rounding never builds up; the right-endpoint rule and why an interval touching an error Sample is skipped; why OVERRANGE Samples are still integrated; why truncation toward zero; the 300 h capacity table.
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.6, 5.7, 15.3, 15.4_
 
-  - [ ] 18.2 Add saturation with check-before-multiply and its Unity tests
+  - [x] 18.2 Add saturation with check-before-multiply and its Unity tests
     - In `pm_energy.c`, add private `headroom_up()`/`headroom_down()` computed in `uint64_t`, the `mag > room / dt_ms` check before multiplying, clamping to ±`ENERGY_ACC_LIMIT_PJ`, and the latched `saturated` flag. Make `pm_energy_is_saturated` return it.
     - Extend `test_energy`: set `acc_pj` just below +limit (tests may write the struct directly) and exceed it → Energy is `INT32_MAX` µWh and saturated; later positive and negative updates change nothing; the negative mirror gives −2,147,483,647 µWh; a step landing exactly on the limit isn't saturated, and the next positive step is; extremes (65,535 mV, `INT32_MIN`/`INT32_MAX` µA, dt = `UINT32_MAX`) saturate without triggering the overflow trap.
-    - Comment the why: why the check runs before the multiply (`mag × dt` can exceed `int64_t`); why `mag > floor(room / dt)` is exactly the overflow condition for non-negative integers; why headroom needs `uint64_t` (the distance can reach 2 × limit); why saturation latches instead of resuming (a clipped total is no longer true).
+    - Comment the why: why the check runs before the multiply (`mag × dt` can exceed `int64_t`); why `mag > floor(room / dt)` is exactly the overflow condition for non-negative integers; why headroom needs `uint64_t` (the distance can reach 2 × limit); why saturation latches instead of resuming (a clipped total is no longer true); why `delta` is added in two halves (`delta ≤ room ≤ 2 × limit` can exceed `INT64_MAX`; each half is ≤ limit, and the intermediate value lies between the old and new `acc_pj`, so neither addition overflows).
     - _Requirements: 5.5, 15.3, 15.4_
 
 - [ ] 19. Implement the sampler

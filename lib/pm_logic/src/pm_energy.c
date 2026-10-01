@@ -12,6 +12,29 @@
 
 #include "pm_time.h"
 
+/* Distance from acc up to +ENERGY_ACC_LIMIT_PJ, and down to -ENERGY_ACC_LIMIT_PJ.
+ * Requires |acc| <= ENERGY_ACC_LIMIT_PJ, which pm_energy_update maintains.
+ *
+ * Why uint64_t: from acc = -limit the distance up is 2 x limit = 1.55e19,
+ * which exceeds INT64_MAX (9.22e18) but fits uint64_t (max 1.84e19). The two
+ * cases by sign keep every step in range: limit - acc with acc >= 0 can't go
+ * negative, and -acc with acc < 0 can't overflow because acc >= -limit > INT64_MIN. */
+static uint64_t headroom_up(int64_t acc)
+{
+    if (acc >= 0) {
+        return (uint64_t)ENERGY_ACC_LIMIT_PJ - (uint64_t)acc;
+    }
+    return (uint64_t)ENERGY_ACC_LIMIT_PJ + (uint64_t)(-acc);
+}
+
+static uint64_t headroom_down(int64_t acc)
+{
+    if (acc <= 0) {
+        return (uint64_t)ENERGY_ACC_LIMIT_PJ - (uint64_t)(-acc);
+    }
+    return (uint64_t)ENERGY_ACC_LIMIT_PJ + (uint64_t)acc;
+}
+
 void pm_energy_init(pm_energy_state_t *s)
 {
     s->acc_pj = 0;
@@ -39,20 +62,52 @@ void pm_energy_update(pm_energy_state_t *s, uint32_t timestamp_ms, bool sample_v
         uint32_t dt_ms = pm_elapsed_ms(s->prev_timestamp_ms, timestamp_ms);   /* modular, wrap-safe */
         int64_t  p_nw  = (int64_t)bus_voltage_mv * current_ua;                /* |p| < 2^47 */
 
-        /* Nothing to add, and it keeps the later division by dt_ms (18.2) safe. */
+        /* Nothing to add, and dt_ms != 0 makes the division below safe. */
         if (p_nw != 0 && dt_ms != 0) {
             /* Work with the magnitude in uint64_t so the multiply below is
              * unsigned. -p_nw cannot overflow: |p_nw| < 2^47. */
-            uint64_t mag = (p_nw > 0) ? (uint64_t)p_nw : (uint64_t)(-p_nw);
+            uint64_t mag  = (p_nw > 0) ? (uint64_t)p_nw : (uint64_t)(-p_nw);
+            uint64_t room = (p_nw > 0) ? headroom_up(s->acc_pj) : headroom_down(s->acc_pj);
 
-            /* TODO(task 18.2): check before multiplying. If mag > room / dt_ms,
-             * clamp acc_pj to +/-ENERGY_ACC_LIMIT_PJ and latch `saturated`.
-             * Until then, mag * dt_ms is only safe for powers and intervals
-             * inside the capacity table in pm_energy.h (|p| <= 6 W,
-             * dt <= 1000 ms, totals within the limit): in general it can need
-             * 47 + 32 = 79 bits, which exceeds uint64_t. */
-            uint64_t delta = mag * dt_ms;
-            s->acc_pj += (p_nw > 0) ? (int64_t)delta : -(int64_t)delta;
+            /* Check before multiplying: mag < 2^47 and dt_ms < 2^32, so
+             * mag * dt_ms can need 79 bits and overflow even uint64_t (and
+             * wrap silently to a wrong, small value). The test must not compute
+             * that product.
+             *
+             * For non-negative integers with dt > 0, mag * dt <= room exactly
+             * when mag <= floor(room / dt): if mag * dt <= room then
+             * mag <= room / dt, and mag is an integer, so it is <= the floor;
+             * conversely mag <= floor(room / dt) <= room / dt gives
+             * mag * dt <= room. C's unsigned `/` is that floor, so
+             * `mag > room / dt_ms` is exactly "the product would pass the limit". */
+            if (mag > room / dt_ms) {
+                s->acc_pj = (p_nw > 0) ? ENERGY_ACC_LIMIT_PJ : -ENERGY_ACC_LIMIT_PJ;
+                /* Latched: the !s->saturated condition above stops all later
+                 * integration (Req 5.5). Once the total has been clipped it is
+                 * no longer the true energy, so letting it move again would
+                 * produce values that look valid but aren't. Only a restart
+                 * (pm_energy_init) clears it. */
+                s->saturated = true;
+            } else {
+                uint64_t delta = mag * dt_ms;   /* <= room, so it cannot wrap */
+
+                /* Added in two halves because delta <= room <= 2 x limit can
+                 * exceed INT64_MAX (e.g. from acc = -limit), and converting
+                 * such a value to int64_t is implementation-defined. Each half
+                 * is <= limit < INT64_MAX, so both conversions are exact. The
+                 * value after the first half lies between the old acc_pj and
+                 * the final result, both within +/- limit, so neither
+                 * addition overflows. */
+                int64_t half1 = (int64_t)(delta / 2u);
+                int64_t half2 = (int64_t)(delta - delta / 2u);
+                if (p_nw > 0) {
+                    s->acc_pj += half1;
+                    s->acc_pj += half2;
+                } else {
+                    s->acc_pj -= half1;
+                    s->acc_pj -= half2;
+                }
+            }
         }
     }
 
@@ -71,14 +126,12 @@ int32_t pm_energy_uwh(const pm_energy_state_t *s)
      *
      * Why the quotient fits int32_t: acc_pj is kept within
      * +/-ENERGY_ACC_LIMIT_PJ = +/-(INT32_MAX x PJ_PER_UWH), so the quotient is
-     * within +/-INT32_MAX. (Task 18.2 enforces that bound for every input;
-     * until then it holds inside the capacity table.) */
+     * within +/-INT32_MAX for every input (pm_energy_update clamps to the
+     * limit instead of passing it). */
     return (int32_t)(s->acc_pj / PJ_PER_UWH);
 }
 
 bool pm_energy_is_saturated(const pm_energy_state_t *s)
 {
-    /* Saturation arrives in task 18.2. */
-    (void)s;
-    return false;
+    return s->saturated;
 }

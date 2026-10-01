@@ -1,4 +1,4 @@
-/* Unity tests for the Energy_Integrator (Req 5.1-5.4, 5.6, 5.7, 15.3, 15.4).
+/* Unity tests for the Energy_Integrator (Req 5.1-5.7, 15.3, 15.4).
  *
  * Expected values are hand-computed literals (arithmetic in the comments).
  * Energy unit: mV x uA x ms = pJ, and 1 uWh = 3,600,000,000 pJ.
@@ -49,9 +49,56 @@
 #define LONG_RUN_TOTAL_PJ          INT64_C(6480000000000000000)
 #define LONG_RUN_TOTAL_UWH         INT32_C(1800000000)
 
+/* Saturation (task 18.2). The limit is written as a literal so the tests
+ * don't reuse the macro under test:
+ * 2,147,483,647 uWh x 3,600,000,000 pJ/uWh = 7,730,941,129,200,000,000 pJ. */
+#define LIMIT_PJ                   INT64_C(7730941129200000000)
+#define MAX_REPORT_UWH             INT32_C(2147483647)
+#define ONE_PJ                     INT64_C(1)
+#define ONE_MV                     UINT16_C(1)
+#define ONE_UA                     INT32_C(1)
+#define ONE_MS                     UINT32_C(1)
+#define LATER_MS                   UINT32_C(5000)
+
+/* From -limit, one 1 uWh step up: -7,730,941,129,200,000,000 + 3,600,000,000
+ * = -7,730,941,125,600,000,000 pJ = -(2,147,483,647 - 1) = -2,147,483,646 uWh. */
+#define NEG_LIMIT_PLUS_ONE_UWH_PJ  (-INT64_C(7730941125600000000))
+#define NEG_LIMIT_PLUS_ONE_UWH     (-INT32_C(2147483646))
+
+/* Extremes of the input types. */
+#define MAX_MV                     UINT16_C(65535)
+#define LONG_DT_MS                 UINT32_C(100000)   /* 100 s */
+
+/* Large step that fits but whose delta exceeds INT64_MAX (9,223,372,036,854,775,807):
+ * 65,535 mV x 2,147,483,647 uA = 140,735,340,806,145 nW
+ * x 100,000 ms = 14,073,534,080,614,500,000 pJ  (room from -limit is 2 x limit
+ *   = 15,461,882,258,400,000,000, so no saturation)
+ * -7,730,941,129,200,000,000 + 14,073,534,080,614,500,000 = 6,342,592,951,414,500,000 pJ
+ * / 3,600,000,000 = 1,761,831,375.39 -> 1,761,831,375 uWh. */
+#define BIG_UP_RESULT_PJ           INT64_C(6342592951414500000)
+#define BIG_UP_RESULT_UWH          INT32_C(1761831375)
+
+/* Negative mirror from +limit:
+ * 65,535 mV x -2,147,483,648 uA = -140,735,340,871,680 nW
+ * x 100,000 ms = -14,073,534,087,168,000,000 pJ  (|delta| <= 2 x limit, no saturation)
+ * 7,730,941,129,200,000,000 - 14,073,534,087,168,000,000 = -6,342,592,957,968,000,000 pJ
+ * / 3,600,000,000 = -1,761,831,377.21 -> -1,761,831,377 uWh (toward zero). */
+#define BIG_DOWN_RESULT_PJ         (-INT64_C(6342592957968000000))
+#define BIG_DOWN_RESULT_UWH        (-INT32_C(1761831377))
+
 /* Unity calls these around every test; nothing to set up. */
 void setUp(void) {}
 void tearDown(void) {}
+
+/* Puts the integrator in an arbitrary valid, unsaturated state with a
+ * baseline at prev_timestamp_ms = 0, by writing the fields directly. */
+static void start_at(pm_energy_state_t *s, int64_t acc_pj)
+{
+    pm_energy_init(s);
+    s->acc_pj = acc_pj;
+    s->prev_valid = true;
+    s->prev_timestamp_ms = 0u;
+}
 
 static void test_starts_at_zero(void)
 {
@@ -180,6 +227,133 @@ static void test_300_hours_at_6_w_is_exact_and_not_saturated(void)
     TEST_ASSERT_FALSE(pm_energy_is_saturated(&s));
 }
 
+/* Asserts the positive-saturated state: held at +limit, reported as INT32_MAX. */
+static void assert_saturated_high(const pm_energy_state_t *s)
+{
+    TEST_ASSERT_TRUE(pm_energy_is_saturated(s));
+    TEST_ASSERT_EQUAL_INT64(LIMIT_PJ, s->acc_pj);
+    TEST_ASSERT_EQUAL_INT32(MAX_REPORT_UWH, pm_energy_uwh(s));
+}
+
+static void assert_saturated_low(const pm_energy_state_t *s)
+{
+    TEST_ASSERT_TRUE(pm_energy_is_saturated(s));
+    TEST_ASSERT_EQUAL_INT64(-LIMIT_PJ, s->acc_pj);
+    TEST_ASSERT_EQUAL_INT32(-MAX_REPORT_UWH, pm_energy_uwh(s));
+}
+
+/* 1 pJ below the limit plus a 1 uWh step would pass it: clamp and latch.
+ * Later steps in either direction change nothing. */
+static void test_passing_positive_limit_saturates_and_latches(void)
+{
+    pm_energy_state_t s;
+    start_at(&s, LIMIT_PJ - ONE_PJ);
+    pm_energy_update(&s, ONE_S_MS, true, TEST_MV, TEST_UA);
+    assert_saturated_high(&s);
+
+    pm_energy_update(&s, 2u * ONE_S_MS, true, TEST_MV, TEST_UA);
+    assert_saturated_high(&s);
+    pm_energy_update(&s, 3u * ONE_S_MS, true, TEST_MV, -TEST_UA);
+    assert_saturated_high(&s);
+}
+
+static void test_passing_negative_limit_saturates_and_latches(void)
+{
+    pm_energy_state_t s;
+    start_at(&s, -LIMIT_PJ + ONE_PJ);
+    pm_energy_update(&s, ONE_S_MS, true, TEST_MV, -TEST_UA);
+    assert_saturated_low(&s);
+
+    pm_energy_update(&s, 2u * ONE_S_MS, true, TEST_MV, TEST_UA);
+    assert_saturated_low(&s);
+    pm_energy_update(&s, 3u * ONE_S_MS, true, TEST_MV, -TEST_UA);
+    assert_saturated_low(&s);
+}
+
+/* 1 mV x 1 uA x 1 ms = 1 pJ: from limit - 1 it lands exactly on the limit,
+ * which is representable and therefore not saturated. The next 1 pJ is. */
+static void test_landing_exactly_on_limit_is_not_saturated(void)
+{
+    pm_energy_state_t s;
+    start_at(&s, LIMIT_PJ - ONE_PJ);
+    pm_energy_update(&s, ONE_MS, true, ONE_MV, ONE_UA);
+    TEST_ASSERT_FALSE(pm_energy_is_saturated(&s));
+    TEST_ASSERT_EQUAL_INT64(LIMIT_PJ, s.acc_pj);
+    TEST_ASSERT_EQUAL_INT32(MAX_REPORT_UWH, pm_energy_uwh(&s));
+
+    pm_energy_update(&s, 2u * ONE_MS, true, ONE_MV, ONE_UA);
+    assert_saturated_high(&s);
+}
+
+/* The native build traps on signed overflow, so finishing at all shows the
+ * check ran before any oversized product: 65,535 mV x |INT32_MIN| uA x
+ * UINT32_MAX ms ~ 6.0e23 pJ, far beyond both int64_t and uint64_t. */
+static void test_extremes_saturate_without_overflow(void)
+{
+    pm_energy_state_t s;
+
+    start_at(&s, ZERO_PJ);
+    pm_energy_update(&s, UINT32_MAX, true, MAX_MV, INT32_MAX);
+    assert_saturated_high(&s);
+
+    start_at(&s, ZERO_PJ);
+    pm_energy_update(&s, UINT32_MAX, true, MAX_MV, INT32_MIN);
+    assert_saturated_low(&s);
+}
+
+/* From exactly -limit (not saturated), a positive step goes through
+ * headroom_up's acc < 0 branch and must add exactly. */
+static void test_positive_step_from_negative_limit_is_exact(void)
+{
+    pm_energy_state_t s;
+    start_at(&s, -LIMIT_PJ);
+    pm_energy_update(&s, ONE_S_MS, true, TEST_MV, TEST_UA);
+    TEST_ASSERT_FALSE(pm_energy_is_saturated(&s));
+    TEST_ASSERT_EQUAL_INT64(NEG_LIMIT_PLUS_ONE_UWH_PJ, s.acc_pj);
+    TEST_ASSERT_EQUAL_INT32(NEG_LIMIT_PLUS_ONE_UWH, pm_energy_uwh(&s));
+}
+
+/* delta > INT64_MAX but within the room: needs the two-halves add. A single
+ * (int64_t)delta conversion here traps in the native build. */
+static void test_large_step_up_from_negative_limit_is_exact(void)
+{
+    pm_energy_state_t s;
+    start_at(&s, -LIMIT_PJ);
+    pm_energy_update(&s, LONG_DT_MS, true, MAX_MV, INT32_MAX);
+    TEST_ASSERT_FALSE(pm_energy_is_saturated(&s));
+    TEST_ASSERT_EQUAL_INT64(BIG_UP_RESULT_PJ, s.acc_pj);
+    TEST_ASSERT_EQUAL_INT32(BIG_UP_RESULT_UWH, pm_energy_uwh(&s));
+}
+
+static void test_large_step_down_from_positive_limit_is_exact(void)
+{
+    pm_energy_state_t s;
+    start_at(&s, LIMIT_PJ);
+    pm_energy_update(&s, LONG_DT_MS, true, MAX_MV, INT32_MIN);
+    TEST_ASSERT_FALSE(pm_energy_is_saturated(&s));
+    TEST_ASSERT_EQUAL_INT64(BIG_DOWN_RESULT_PJ, s.acc_pj);
+    TEST_ASSERT_EQUAL_INT32(BIG_DOWN_RESULT_UWH, pm_energy_uwh(&s));
+}
+
+/* Saturation freezes acc_pj, not the bookkeeping: the previous-Sample fields
+ * still follow every call. */
+static void test_prev_fields_still_update_after_saturation(void)
+{
+    pm_energy_state_t s;
+    start_at(&s, LIMIT_PJ - ONE_PJ);
+    pm_energy_update(&s, ONE_S_MS, true, TEST_MV, TEST_UA);
+    assert_saturated_high(&s);
+
+    pm_energy_update(&s, LATER_MS, true, TEST_MV, TEST_UA);
+    TEST_ASSERT_EQUAL_UINT32(LATER_MS, s.prev_timestamp_ms);
+    TEST_ASSERT_TRUE(s.prev_valid);
+
+    pm_energy_update(&s, LATER_MS + ONE_S_MS, false, ZERO_MV, ZERO_UA);
+    TEST_ASSERT_EQUAL_UINT32(LATER_MS + ONE_S_MS, s.prev_timestamp_ms);
+    TEST_ASSERT_FALSE(s.prev_valid);
+    assert_saturated_high(&s);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -194,5 +368,13 @@ int main(void)
     RUN_TEST(test_overrange_level_value_is_integrated);
     RUN_TEST(test_equal_positive_and_negative_intervals_cancel);
     RUN_TEST(test_300_hours_at_6_w_is_exact_and_not_saturated);
+    RUN_TEST(test_passing_positive_limit_saturates_and_latches);
+    RUN_TEST(test_passing_negative_limit_saturates_and_latches);
+    RUN_TEST(test_landing_exactly_on_limit_is_not_saturated);
+    RUN_TEST(test_extremes_saturate_without_overflow);
+    RUN_TEST(test_positive_step_from_negative_limit_is_exact);
+    RUN_TEST(test_large_step_up_from_negative_limit_is_exact);
+    RUN_TEST(test_large_step_down_from_positive_limit_is_exact);
+    RUN_TEST(test_prev_fields_still_update_after_saturation);
     return UNITY_END();
 }

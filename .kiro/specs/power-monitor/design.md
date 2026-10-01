@@ -444,8 +444,11 @@ if (sample_valid && s->prev_valid && !s->saturated) {
             s->acc_pj = (p_nw > 0) ? ENERGY_ACC_LIMIT_PJ : -ENERGY_ACC_LIMIT_PJ;
             s->saturated = true;             /* latched until reset (Req 5.5) */
         } else {
-            uint64_t delta = mag * dt_ms;    /* <= room, cannot overflow */
-            s->acc_pj += (p_nw > 0) ? (int64_t)delta : -(int64_t)delta;
+            uint64_t delta = mag * dt_ms;    /* <= room <= 2 x limit, cannot overflow uint64_t */
+            int64_t  half1 = (int64_t)(delta / 2u);          /* each half <= limit < INT64_MAX */
+            int64_t  half2 = (int64_t)(delta - delta / 2u);
+            if (p_nw > 0) { s->acc_pj += half1; s->acc_pj += half2; }
+            else          { s->acc_pj -= half1; s->acc_pj -= half2; }
         }
     }
 }
@@ -455,7 +458,7 @@ s->prev_timestamp_ms = timestamp_ms;
 
 - **Interval rule (Req 5.1).** Energy is added only when both the previous and the current Sample are valid (SENSOR_ERROR clear), using the later Sample's V and I over the elapsed interval (a right-endpoint Riemann sum). A Sample after an error only re-establishes the baseline time. OVERRANGE Samples are still integrated because their values are real measurements.
 - **Wrap-safe time (Req 5.2).** `pm_elapsed_ms(prev, now)` is `(uint32_t)(now - prev)`. Unsigned subtraction in C is defined modulo 2³², so prev = 4,294,967,196 and now = 4 give 104 ms, which is correct across the `millis()` wrap.
-- **Check before multiply.** For non-negative integers, `mag × dt ≤ room` exactly when `mag ≤ floor(room / dt)`, so comparing against `room / dt_ms` decides overflow without ever computing an overflowing product. `headroom_up(acc)` is the distance from `acc` to `+ENERGY_ACC_LIMIT_PJ`, computed in `uint64_t` in two cases (`acc ≥ 0`: `LIMIT − acc`; `acc < 0`: `LIMIT + (−acc)`), because the distance can reach 2 × 7.73 × 10¹⁸, which exceeds `INT64_MAX` but fits `uint64_t`. `headroom_down` is the mirror image.
+- **Check before multiply.** For non-negative integers, `mag × dt ≤ room` exactly when `mag ≤ floor(room / dt)`, so comparing against `room / dt_ms` decides overflow without ever computing an overflowing product. `headroom_up(acc)` is the distance from `acc` to `+ENERGY_ACC_LIMIT_PJ`, computed in `uint64_t` in two cases (`acc ≥ 0`: `LIMIT − acc`; `acc < 0`: `LIMIT + (−acc)`), because the distance can reach 2 × 7.73 × 10¹⁸, which exceeds `INT64_MAX` but fits `uint64_t`. `headroom_down` is the mirror image. Because `delta ≤ room` can itself exceed `INT64_MAX`, it is added in two halves, each at most the limit, so both conversions to `int64_t` are exact and the intermediate value stays between the old and new `acc`, both within ±limit.
 - **Exactness (Req 5.3).** All products are exact integers and the accumulator never rounds, so the only rounding is the final `acc / PJ_PER_UWH`. Truncation toward zero gives an error below 1 µWh regardless of run length.
 - **Net energy (Req 5.7).** Negative current gives negative `p_nw`, which decreases `acc`.
 - **Saturation (Req 5.5).** Once the limit would be passed, `acc` is held at ±limit and `saturated` latches. Integration stops, because after clipping the total is no longer true; letting it move again would produce a value that looks valid but is not.
