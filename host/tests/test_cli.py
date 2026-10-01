@@ -10,6 +10,7 @@ maybe_flush(), and close(), so any object with those methods works.
 import csv
 import errno
 import re
+import subprocess
 import sys
 import types
 from pathlib import Path
@@ -31,6 +32,7 @@ from power_monitor.cli import (
 )
 from power_monitor.csv_logger import CSV_HEADER, CsvLogger
 from power_monitor.link_monitor import LinkMonitor
+from power_monitor.live_plot import LivePlot
 from power_monitor.parser import FrameParser
 from power_monitor.protocol import FLAG_SENSOR_ERROR, Sample, encode_frame
 from power_monitor.simulator import SimulatedSource
@@ -497,7 +499,7 @@ def test_both_sources_feed_a_frame_parser_with_no_plot(
     # Installed for both cases; --simulate simply never touches it.
     install_fake_serial(monkeypatch)
 
-    main([*source_args, "--csv", str(tmp_path / "log.csv")])
+    main([*source_args, "--no-plot", "--csv", str(tmp_path / "log.csv")])
 
     assert captured_session.args is not None
     source, parser, monitor, logger, plot = captured_session.args
@@ -572,3 +574,66 @@ def test_csv_open_failure_returns_1_names_path_and_closes_source(
     if case == "existing-file":
         # Mode "x": the earlier log is left untouched.
         assert csv_path.read_text(encoding="utf-8") == "earlier log\n"
+
+
+# ---- main: plot wiring (task 12.3) ----
+
+# The host/ directory (this file is host/tests/test_cli.py), so the
+# subprocess finds the power_monitor package whatever directory pytest was
+# started from.
+HOST_DIR: Final = Path(__file__).resolve().parents[1]
+
+
+def test_no_plot_passes_none(tmp_path: Path, captured_session: CapturedSession) -> None:
+    main(["--simulate", "--no-plot", "--csv", str(tmp_path / "log.csv")])
+
+    assert captured_session.args is not None
+    assert captured_session.args[4] is None
+
+
+def test_without_no_plot_passes_a_live_plot(
+    tmp_path: Path, captured_session: CapturedSession
+) -> None:
+    # Agg is selected here, not left to test_live_plot.py's module-level
+    # matplotlib.use("Agg"): this file may run alone (`pytest
+    # tests/test_cli.py`), and then nothing else picks a backend, so
+    # LivePlot would open a real window. It runs before main(), which is
+    # where pyplot first gets imported (in LivePlot.__init__).
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    try:
+        main(["--simulate", "--csv", str(tmp_path / "log.csv")])
+
+        assert captured_session.args is not None
+        assert isinstance(captured_session.args[4], LivePlot)
+    finally:
+        # run_session is replaced, so plt.pause() never ran, but LivePlot
+        # did create a figure; close it so it doesn't leak into later tests.
+        plt.close("all")
+
+
+def test_importing_cli_loads_neither_matplotlib_nor_serial() -> None:
+    # Why a subprocess: this test process has almost certainly imported
+    # matplotlib already (test_live_plot.py does at module level, and so
+    # does the LivePlot test above), and modules stay in sys.modules once
+    # loaded. Checking sys.modules here would prove nothing. A fresh
+    # interpreter starts clean, so the only imports it sees are the ones
+    # `import power_monitor.cli` caused.
+    check = (
+        "import power_monitor.cli, sys; "
+        "assert 'matplotlib' not in sys.modules, 'matplotlib imported'; "
+        "assert 'serial' not in sys.modules, 'serial imported'"
+    )
+
+    result = subprocess.run(
+        [sys.executable, "-c", check],
+        cwd=HOST_DIR,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr

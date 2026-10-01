@@ -20,6 +20,10 @@ from typing import Callable, Final, Protocol
 
 from power_monitor.csv_logger import CsvLogger
 from power_monitor.link_monitor import LinkMonitor, format_summary
+# Safe to import at the top: live_plot.py only imports matplotlib inside
+# LivePlot.__init__, so importing cli (and running with --no-plot) never
+# loads matplotlib. test_cli.py checks this in a fresh interpreter.
+from power_monitor.live_plot import LivePlot, PlotBuffer
 from power_monitor.parser import FrameParser
 from power_monitor.protocol import Sample
 from power_monitor.simulator import SimulatedSource, Simulator
@@ -58,9 +62,9 @@ class ByteSource(Protocol):
     def close(self) -> None: ...
 
 
-# A Protocol here, not an import of LivePlot, for two reasons: run_session
-# then does not depend on live_plot.py (which arrives in task 12.1, and which
-# pulls in matplotlib), and tests can pass a small fake that records calls.
+# A Protocol here, not the LivePlot type, for two reasons: run_session then
+# does not depend on live_plot.py (only main() builds a LivePlot), and tests
+# can pass a small fake that records calls.
 class PlotSink(Protocol):
     def add(self, t_s: float, sample: Sample) -> None: ...
 
@@ -250,5 +254,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         source.close()
         return EXIT_RUNTIME_ERROR
 
-    # plot=None until the plot is wired in (task 12.3).
-    return run_session(source, FrameParser(), LinkMonitor(), logger, None)
+    # The plot is created last, only once the source and the CSV have both
+    # opened, so a failed open returns above without ever opening a window
+    # (or paying for the matplotlib import). With --no-plot, None tells
+    # run_session to skip all plot calls, and matplotlib is never imported.
+    plot: PlotSink | None = None if args.no_plot else LivePlot(PlotBuffer())
+    return run_session(source, FrameParser(), LinkMonitor(), logger, plot)

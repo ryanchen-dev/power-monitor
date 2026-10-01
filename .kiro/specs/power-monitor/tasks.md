@@ -206,7 +206,7 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: why pyserial is imported lazily (`--simulate` must work without it and without hardware); why the timeout is 50 ms (it keeps the loop responsive for CSV flushes and plot refreshes without busy-waiting); why macOS opening the port resets the Uno (DTR) and how LinkMonitor handles that.
     - _Requirements: 8.1, 13.1, 13.3, 13.4, 13.5, 13.6_
 
-- [ ] 12. Implement the Live_Plot and wire it in
+- [x] 12. Implement the Live_Plot and wire it in
   - _Requirements: 12.1, 12.2, 12.3_
 
   - [x] 12.1 Implement `live_plot.py` with its tests
@@ -222,7 +222,7 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: why the boundary is inclusive (a point exactly 60 s old is still "within the most recent 60 seconds").
     - _Requirements: 12.1, 15.5_
 
-  - [ ] 12.3 Wire LivePlot into `main`
+  - [x] 12.3 Wire LivePlot into `main`
     - In `cli.py`, have `main` pass `LivePlot(PlotBuffer())` unless `--no-plot` is given, in which case it passes `None`.
     - Extend `test_cli.py`: `--no-plot` passes `plot=None` (captured via monkeypatched `run_session`); without it, a `LivePlot` is passed (Agg backend); a subprocess test runs `python -c "import power_monitor.cli, sys; assert 'matplotlib' not in sys.modules"`.
     - Comment the why: why the matplotlib check runs in a subprocess (the test process already imported matplotlib in other tests, so `sys.modules` there proves nothing).

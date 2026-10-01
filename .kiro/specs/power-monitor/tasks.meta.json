@@ -362,6 +362,25 @@
         "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
         "timestamp": 1790826369830
       }
+    ],
+    "12.3 Wire LivePlot into `main`": [
+      {
+        "executionId": "f4f08813-c788-4ab4-a007-550051f65e64",
+        "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
+        "timestamp": 1790826784533
+      },
+      {
+        "executionId": "f4f08813-c788-4ab4-a007-550051f65e64",
+        "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
+        "timestamp": 1790827054494
+      }
+    ],
+    "12. Implement the Live_Plot and wire it in": [
+      {
+        "executionId": "f4f08813-c788-4ab4-a007-550051f65e64",
+        "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
+        "timestamp": 1790827054583
+      }
     ]
   }
 }
