@@ -236,7 +236,7 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: why `ast` instead of importing and using `inspect` (no side effects such as importing matplotlib or pyserial); why an empty scan must fail.
     - _Requirements: 13.8_
 
-- [ ] 14. Checkpoint: simulate mode works end to end
+- [x] 14. Checkpoint: simulate mode works end to end
   - Ensure all tests pass, ask the user if questions arise.
   - `cd host && python -m pytest` is green. The user runs `python -m power_monitor --simulate` and confirms the plot shows V, mA, and mW over 60 s and the CSV grows; Ctrl+C prints the summary and exits 0 (`echo $?`); `python -m power_monitor --simulate --no-plot` runs without opening a window.
   - _Requirements: 10.3, 11.3, 11.4, 12.1, 12.2, 12.3, 13.2, 13.3, 13.4, 15.5_
