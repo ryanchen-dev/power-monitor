@@ -805,7 +805,7 @@ def run_session(source: ByteSource, parser: FrameParser, monitor: LinkMonitor,
 def main(argv: Sequence[str] | None = None) -> int: ...
 ```
 
-`wall_clock` gives the CSV host time (Unix seconds). `mono_clock` gives the plot's `t_s` (seconds since session start) and `now_s`, because wall-clock time can jump when the system clock is adjusted. Both are injected so tests control them.
+`wall_clock` gives the CSV host time (Unix seconds). `mono_clock` gives the plot's `t_s` and `now_s`, both as seconds since session start, because wall-clock time can jump when the system clock is adjusted. Both are injected so tests control them.
 
 ```text
 usage: python -m power_monitor (--port PORT | --simulate) [--baud BAUD] [--csv PATH] [--no-plot]

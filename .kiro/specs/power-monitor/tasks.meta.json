@@ -307,6 +307,18 @@
         "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
         "timestamp": 1790809290745
       }
+    ],
+    "11.1 Implement `build_arg_parser` and `run_session` with their tests": [
+      {
+        "executionId": "f446323f-7c34-4f5f-ac6d-eee958636255",
+        "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
+        "timestamp": 1790822039753
+      },
+      {
+        "executionId": "f446323f-7c34-4f5f-ac6d-eee958636255",
+        "chatSessionId": "sess_92bc749a-eee3-42b8-9420-c101c29e42b0",
+        "timestamp": 1790823211442
+      }
     ]
   }
 }
