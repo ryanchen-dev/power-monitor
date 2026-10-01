@@ -4,11 +4,22 @@
 #include <stdio.h>
 #include <unity.h>
 #include "pm_scaling.h"
+/* Why a relative path: src/ is not on the native include path, and adding it
+ * would mean changing platformio.ini from the design. A quoted include is
+ * resolved first relative to this file's directory (test/test_scaling/), so
+ * ../../src reaches the header directly. test_build_src = no only stops the
+ * .cpp files in src/ from being compiled here; it doesn't stop a test from
+ * including a header. This works because ina219_driver.h is Arduino-free. */
+#include "../../src/ina219_driver.h"
 
 /* Expected derived constants, written as literals on purpose: comparing a
  * macro against itself would prove nothing. */
 #define EXPECTED_CURRENT_LSB_UA     100L
 #define EXPECTED_CAL_VALUE          4096L
+/* From the design's configuration table (BRNG 16 V, PGA /4, 12-bit ADCs,
+ * continuous shunt and bus), and A0 = A1 = GND for the address. */
+#define EXPECTED_INA219_CONFIG_VALUE  0x119Fu
+#define EXPECTED_INA219_I2C_ADDR      0x40u
 
 /* Bus voltage register inputs. The reading sits in bits 15..3. */
 #define BUS_REG_ZERO                UINT16_C(0x0000)
@@ -59,6 +70,16 @@ static void test_current_lsb_is_100_ua(void)
 static void test_cal_value_is_4096(void)
 {
     TEST_ASSERT_EQUAL_INT32(EXPECTED_CAL_VALUE, INA219_CAL_VALUE);
+}
+
+static void test_ina219_config_value_is_0x119f(void)
+{
+    TEST_ASSERT_EQUAL_HEX16(EXPECTED_INA219_CONFIG_VALUE, INA219_CONFIG_VALUE);
+}
+
+static void test_ina219_i2c_addr_is_0x40(void)
+{
+    TEST_ASSERT_EQUAL_HEX8(EXPECTED_INA219_I2C_ADDR, INA219_I2C_ADDR);
 }
 
 static void test_bus_zero_register_is_zero_mv(void)
@@ -194,6 +215,8 @@ int main(void)
     UNITY_BEGIN();
     RUN_TEST(test_current_lsb_is_100_ua);
     RUN_TEST(test_cal_value_is_4096);
+    RUN_TEST(test_ina219_config_value_is_0x119f);
+    RUN_TEST(test_ina219_i2c_addr_is_0x40);
     RUN_TEST(test_bus_zero_register_is_zero_mv);
     RUN_TEST(test_bus_0x2710_is_5000_mv);
     RUN_TEST(test_bus_full_scale_is_32764_mv);

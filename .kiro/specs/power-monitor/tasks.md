@@ -336,7 +336,7 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
 - [ ] 23. Implement the INA219_Driver
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 2.1_
 
-  - [ ] 23.1 Write the driver header and check the configuration value
+  - [x] 23.1 Write the driver header and check the configuration value
     - Create `src/ina219_driver.h` with `INA219_I2C_ADDR`, the four register addresses, the configuration bit-field macros composing `INA219_CONFIG_VALUE`, and the three prototypes. It includes only `pm_status.h` and `pm_scaling.h` (no Arduino headers) and is valid C with `extern "C"` guards.
     - Extend `test/test_scaling/test_main.c` to `#include "../../src/ina219_driver.h"` and assert `INA219_CONFIG_VALUE == 0x119F` and `INA219_I2C_ADDR == 0x40`.
     - Comment the why: briefly explain the PGA and why /4 (fits 100 mV at 1 A with headroom, better offset than /8); why BRNG 16 V (smallest range covering 6 V; LSB is 4 mV either way); how each field lands at its bit position; why the header is Arduino-free (so a native test can check the value); why a relative include path (`platformio.ini` stays as designed, and `test_build_src = no` only stops `.cpp` compilation, not header includes).
