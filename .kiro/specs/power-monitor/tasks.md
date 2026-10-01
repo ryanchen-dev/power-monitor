@@ -243,7 +243,7 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
 
 ### Slice 3: Firmware logic modules with Unity tests
 
-- [ ] 15. Implement the Scaling_Module
+- [x] 15. Implement the Scaling_Module
   - _Requirements: 1.2, 2.6, 3.1, 3.2, 3.3, 3.4, 3.5, 16.5_
 
   - [x] 15.1 Implement `pm_scaling` with its Unity tests
@@ -252,14 +252,14 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: briefly explain fixed point and the calibration register formula in integer units; why `L` suffixes are needed (`int` is 16 bits on AVR); why `CURRENT_LSB_UA` is derived from the shunt ADC step (a finer LSB adds no resolution); what each `#error` protects against; why the explicit `raw >= 0x8000` decode instead of an `int16_t` cast (implementation-defined in C99); why boundary values count as in range.
     - _Requirements: 1.2, 2.6, 3.1, 3.2, 3.5, 15.3, 16.5_
 
-  - [ ] 15.2 Add the exhaustive bus voltage scaling test (Unity, required)
+  - [x] 15.2 Add the exhaustive bus voltage scaling test (Unity, required)
     - **Property 1: Bus voltage scaling is exact**
     - **Validates: Requirements 3.1, 3.3**
     - In `test_scaling`, for all 65,536 register values `r`, assert `pm_scale_bus_voltage_mv(r) == (r >> 3) * 4` and `pm_bus_math_overflow(r) == ((r & 1) == 1)`.
     - Comment the why: why `uint32_t` is the loop variable; why exhaustive beats sampling for 16-bit inputs.
     - _Requirements: 3.1, 3.3_
 
-  - [ ] 15.3 Add the exhaustive current scaling test (Unity, required)
+  - [x] 15.3 Add the exhaustive current scaling test (Unity, required)
     - **Property 2: Current scaling is exact and preserves sign**
     - **Validates: Requirements 3.2, 3.4**
     - In `test_scaling`, for all 65,536 register values `r`, assert `pm_scale_current_ua(r) == s * 100`, where `s = r >= 0x8000 ? (int32_t)r - 65536 : (int32_t)r`.

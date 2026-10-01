@@ -1,5 +1,7 @@
-/* Unity tests for the Scaling_Module (Req 1.2, 2.6, 3.1, 3.2, 3.5, 15.3, 16.5). */
+/* Unity tests for the Scaling_Module (Req 1.2, 2.6, 3.1-3.5, 15.3, 16.5). */
+#include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <unity.h>
 #include "pm_scaling.h"
 
@@ -33,6 +35,17 @@
 #define CURRENT_ONE_STEP_OVER_UA    INT32_C(1000100)
 #define ZERO_MV                     UINT16_C(0)
 #define ZERO_UA                     INT32_C(0)
+
+/* Reference-model constants for the exhaustive Properties 1 and 2, taken from
+ * the INA219 datasheet and written here independently of pm_scaling.h. */
+#define REG_VALUE_COUNT             UINT32_C(65536)   /* number of distinct 16-bit register values */
+#define REF_BUS_READING_SHIFT       3u                /* bus reading lives in bits 15..3 */
+#define REF_BUS_LSB_MV              UINT32_C(4)
+#define REF_BUS_OVF_BIT_MASK        UINT32_C(1)       /* OVF is bit 0 */
+#define REF_CURRENT_SIGN_MIN_COUNT  UINT32_C(0x8000)  /* raw values from here up are negative */
+#define REF_CURRENT_MODULUS_COUNT   INT32_C(65536)    /* 2^16 */
+#define REF_CURRENT_LSB_UA          INT32_C(100)
+#define REG_MSG_LEN_BYTES           16                /* fits "r = 65535" plus the NUL */
 
 /* Unity calls these around every test; nothing to set up. */
 void setUp(void) {}
@@ -126,6 +139,56 @@ static void test_overrange_int32_extremes_do_not_overflow(void)
     TEST_ASSERT_TRUE(pm_is_overrange(ZERO_MV, INT32_MAX));
 }
 
+/* Feature: power-monitor, Property 1: Bus voltage scaling is exact */
+/* Why exhaustive: the input is a 16-bit register, so there are only 65,536
+ * cases and checking all of them takes milliseconds. That is a proof by
+ * exhaustion for this function. Random sampling of a few hundred values could
+ * easily miss a single bad input, such as the top count 0xFFF8 or a value
+ * where a status bit leaks into the reading. */
+static void test_bus_scaling_is_exact_for_every_register(void)
+{
+    /* Why uint32_t: a uint16_t counter can never reach 65536, so
+     * `r < REG_VALUE_COUNT` would always be true and the loop would never end. */
+    uint32_t r;
+    char msg[REG_MSG_LEN_BYTES];
+
+    for (r = 0u; r < REG_VALUE_COUNT; r++) {
+        /* Reference in uint32_t from the datasheet rule, so it doesn't depend
+         * on int width or on pm_scaling.h's macros. */
+        uint16_t expected_mv  = (uint16_t)((r >> REF_BUS_READING_SHIFT) * REF_BUS_LSB_MV);
+        bool     expected_ovf = (r & REF_BUS_OVF_BIT_MASK) == REF_BUS_OVF_BIT_MASK;
+
+        /* Unity only prints expected vs actual; the message names the input. */
+        snprintf(msg, sizeof msg, "r = %lu", (unsigned long)r);
+        TEST_ASSERT_EQUAL_UINT16_MESSAGE(expected_mv, pm_scale_bus_voltage_mv((uint16_t)r), msg);
+        TEST_ASSERT_EQUAL_INT_MESSAGE((int)expected_ovf, (int)pm_bus_math_overflow((uint16_t)r), msg);
+    }
+}
+
+/* Feature: power-monitor, Property 2: Current scaling is exact and preserves sign */
+/* Same exhaustive argument and uint32_t loop variable as Property 1. */
+static void test_current_scaling_is_exact_for_every_register(void)
+{
+    uint32_t r;
+    char msg[REG_MSG_LEN_BYTES];
+
+    for (r = 0u; r < REG_VALUE_COUNT; r++) {
+        /* Why an independent reference: a test that calls the code under test
+         * (or reuses its macros) to compute the expected value would agree with
+         * any bug in it, so it would prove nothing. This reference is the
+         * datasheet's rule written from scratch with this file's constants: if
+         * CURRENT_LSB_UA or the decode in pm_scaling.c were wrong, the two
+         * would disagree. (int32_t)r is safe because r <= 65535 fits. */
+        int32_t s = (r >= REF_CURRENT_SIGN_MIN_COUNT)
+                        ? (int32_t)r - REF_CURRENT_MODULUS_COUNT
+                        : (int32_t)r;
+        int32_t expected_ua = s * REF_CURRENT_LSB_UA;
+
+        snprintf(msg, sizeof msg, "r = %lu", (unsigned long)r);
+        TEST_ASSERT_EQUAL_INT32_MESSAGE(expected_ua, pm_scale_current_ua((uint16_t)r), msg);
+    }
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -143,5 +206,7 @@ int main(void)
     RUN_TEST(test_overrange_bus_voltage_boundary);
     RUN_TEST(test_overrange_current_boundaries);
     RUN_TEST(test_overrange_int32_extremes_do_not_overflow);
+    RUN_TEST(test_bus_scaling_is_exact_for_every_register);
+    RUN_TEST(test_current_scaling_is_exact_for_every_register);
     return UNITY_END();
 }
