@@ -473,20 +473,22 @@ Capacity and headroom (Req 5.4):
 ### Wrap-safe time helpers (`pm_time.h/.c`)
 
 ```c
+#define PM_TIME_HALF_RANGE_MS  UINT32_C(0x80000000)   /* 2^31 ms, half the millis() circle */
+
 uint32_t pm_elapsed_ms(uint32_t earlier_ms, uint32_t later_ms) {
     return (uint32_t)(later_ms - earlier_ms);
 }
 /* True once now has reached deadline, valid while they are less than 2^31 ms (24.8 days) apart. */
 bool pm_deadline_reached(uint32_t now_ms, uint32_t deadline_ms) {
-    return (int32_t)(now_ms - deadline_ms) >= 0;
+    return (uint32_t)(now_ms - deadline_ms) < PM_TIME_HALF_RANGE_MS;
 }
 ```
 
 These are ordinary functions in a `.c` file rather than `static inline` in the header so that the `ctypes` property tests can call them (inline functions have no exported symbol). The call overhead is irrelevant at 50 Hz.
 
-Comparing `now >= deadline` directly breaks at the wrap: if `now` is 4,294,967,290 and the next deadline has wrapped to 4, `now >= deadline` is already true and the Sample fires about 10 ms early. The signed difference treats the 32-bit counter as a circle and asks "is `now` at or ahead of `deadline` by less than half the circle".
+Comparing `now >= deadline` directly breaks at the wrap: if `now` is 4,294,967,290 and the next deadline has wrapped to 4, `now >= deadline` is already true and the Sample fires about 10 ms early. The modular difference `now - deadline` treats the 32-bit counter as a circle and asks "is `now` at or ahead of `deadline` by less than half the circle".
 
-Casting an unsigned value above `INT32_MAX` to `int32_t` is implementation-defined in C99; avr-gcc and clang both define it as two's-complement wrap, which is what this relies on. The native tests check the wrap cases on the Mac, and the same compiler family is used on the AVR.
+Comparing the unsigned difference `now − deadline` (mod 2³²) against 2³¹ asks exactly "is `now` at or ahead of `deadline` by less than half the 32-bit circle", with no implementation-defined behavior, because it never converts an out-of-range value to a signed type.
 
 ### Frame_Encoder (`pm_frame.h/.c`)
 

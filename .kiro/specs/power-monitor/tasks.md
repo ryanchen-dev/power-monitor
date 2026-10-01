@@ -266,13 +266,13 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: why the reference is written independently of the implementation (a test that reuses the code under test proves nothing).
     - _Requirements: 3.2, 3.4_
 
-- [ ] 16. Implement the wrap-safe time helpers
+- [x] 16. Implement the wrap-safe time helpers
   - _Requirements: 5.2, 6.4_
 
-  - [ ] 16.1 Implement `pm_time` with its Unity tests
+  - [x] 16.1 Implement `pm_time` with its Unity tests
     - Create `lib/pm_logic/src/pm_time.h/.c` with `pm_elapsed_ms` and `pm_deadline_reached`.
     - Create `test/test_time/test_main.c`: elapsed 4,294,967,196 → 4 is 104 ms; elapsed with no wrap; `pm_deadline_reached(4294967290, 4)` is false; `(4, 4)` and `(5, 4)` are true; a deadline 2³¹ − 1 ms ahead is not reached.
-    - Comment the why: why unsigned subtraction is wrap-safe (C defines it modulo 2³²); why `now >= deadline` breaks at the wrap (with an example); why the signed difference works and its 2³¹ ms limit; the implementation-defined cast and why it's acceptable for avr-gcc and clang; why these are `.c` functions and not `static inline` (ctypes needs exported symbols).
+    - Comment the why: why unsigned subtraction is wrap-safe (C defines it modulo 2³²); why `now >= deadline` breaks at the wrap (with an example); why the modular difference works and its 2³¹ ms limit; why comparing the unsigned difference against 2³¹ avoids an implementation-defined cast; why these are `.c` functions and not `static inline` (ctypes needs exported symbols).
     - _Requirements: 5.2, 6.4, 15.3_
 
 - [ ] 17. Implement the Power_Calculator
@@ -443,7 +443,7 @@ The `ctypes`/hypothesis properties for the firmware logic (tasks 28–30) are op
     - **Property 7: Time arithmetic is wrap-safe**
     - **Validates: Requirements 5.2, 6.4**
     - In `test_fw_logic_properties.py`, for `t` in 0…2³²−1 and `d` in 0…2³¹−1, assert `pm_elapsed_ms(t, (t+d) mod 2³²) == d` and `pm_deadline_reached((t+d) mod 2³², t)`; for `d` in 1…2³¹−1, assert `pm_deadline_reached(t, (t+d) mod 2³²)` is false.
-    - Comment the why: why `d` stops at 2³¹ − 1 (the documented validity limit of the signed comparison).
+    - Comment the why: why `d` stops at 2³¹ − 1 (the documented validity limit of the deadline comparison).
     - _Requirements: 5.2, 6.4_
 
   - [ ]* 30.4 Write the C/Python encoder agreement property test
