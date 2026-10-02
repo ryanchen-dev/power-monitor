@@ -936,6 +936,7 @@ Estimates for `env:uno`, to be replaced by the measured numbers from the first `
 | `twi.c` | 120 | three 32 B buffers, state, timeout variables |
 | Application | 50 | `pm_sampler_t` (≈ 17 B), `frame_buf` 25 B, `next_sample_ms` 4 B (the `pm_sample_t` is a local in `loop()`, so it lives on the stack) |
 | **Total static** | **≈ 430** | **42% of the 1024 B limit** |
+| **Measured total static** | **452** | **44% of the 1024 B limit**; `.data` 42 + `.bss` 410 (commit `ddda036`, see `docs/verification_report.md` V6) |
 | Stack available (2048 − static) | ≈ 1620 | |
 | Estimated peak stack | < 300 | `loop()` → `pm_sampler_finish()` → `pm_energy_update()` with 64-bit temporaries and a libgcc 64-bit divide, plus one ISR frame (AVR ISRs don't nest by default) |
 
@@ -951,6 +952,7 @@ Estimates for `env:uno`, to be replaced by the measured numbers from the first `
 | Application: drivers + `main.cpp` | 700 |
 | Application: logic library | 1,500 |
 | **Total** | **≈ 7,450 (45% of the limit)** |
+| **Measured total** (commit `ddda036`, see `docs/verification_report.md` V6) | **6,880 (42% of the limit)** |
 
 What would break the budget, and is avoided: `Serial.print` of numbers (about 1 KB of formatting code), any `float` (soft-float library, 1–4 KB), a CRC table in SRAM (256 B), `String` or heap use (`malloc` arena and fragmentation). The Optiboot bootloader's 512 B is already excluded from PlatformIO's 32256-byte figure.
 

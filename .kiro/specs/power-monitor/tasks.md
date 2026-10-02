@@ -372,10 +372,10 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: why comments and strings are stripped first (a comment explaining "no float" must not fail the test); why word boundaries (`new` must not match `next_seq`); why an empty scan must fail; that the native build also fails on Arduino headers, so this check doubles as a readable error.
     - _Requirements: 1.5, 8.3, 15.1, 16.3, 16.4_
 
-- [ ] 26. Start the verification report with measured resources
+- [x] 26. Start the verification report with measured resources
   - _Requirements: 16.1, 16.2_
 
-  - [ ] 26.1 Create `docs/verification_report.md` and fill V6
+  - [x] 26.1 Create `docs/verification_report.md` and fill V6
     - Create `docs/verification_report.md` with headings for setup and equipment (DMM model and per-range accuracy, INA219 grade, shunt tolerance), V1–V6, and a summary. Leave V1–V5 as "not yet run".
     - Fill V6 from `pio run -e uno`: static RAM vs the 1024 B limit and flash vs the 16384 B limit with pass/fail, and a comparison with the design's estimates (≈ 430 B RAM, ≈ 7,450 B flash) that explains any large difference.
     - Explain in the report: what "static RAM" means (`.data` + `.bss`) and why the stack isn't included in that figure.
