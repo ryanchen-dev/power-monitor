@@ -354,10 +354,10 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: why the read-back (a device that ACKs but didn't keep the settings); why the driver stops at the first failure and never retries (bounds the worst-case Sample time; the re-init policy lives in `pm_sampler`).
     - _Requirements: 1.1, 1.3, 1.4, 2.1_
 
-- [ ] 24. Implement the firmware entry point
+- [x] 24. Implement the firmware entry point
   - _Requirements: 1.3, 2.3, 2.4, 6.4, 6.5, 7.6, 8.2, 8.3_
 
-  - [ ] 24.1 Implement `main.cpp` and build the firmware
+  - [x] 24.1 Implement `main.cpp` and build the firmware
     - Create `src/main.cpp` with `setup()` and `loop()` as in the design: static `sampler`, `frame_buf`, `next_sample_ms`; `uart_init`, `ina219_bus_begin`, `ina219_configure`, `pm_sampler_init`; the first Sample one period after boot; the `pm_deadline_reached` fixed-rate schedule; READ or REINIT per `pm_sampler_next_action`; `pm_sampler_finish`, `pm_frame_encode`, `uart_write_frame`.
     - Run `pio run -e uno`: it builds and links with no warnings from project files. Note the RAM and flash lines for 26.1.
     - Comment the why: briefly explain the super-loop with a `millis()` schedule; why `next_sample_ms += SAMPLE_PERIOD_MS` instead of `now + period` (jitter doesn't accumulate, so the mean interval is exact); why no catch-up logic is needed (worst case ≈ 11 ms < 20 ms); why the first Sample waits one period; why `uart_write_frame`'s result is ignored (no other output channel, and the seq gap shows the host the loss); why `pm_sample_t` is a local (stack, not static RAM).
