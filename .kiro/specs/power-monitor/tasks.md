@@ -363,10 +363,10 @@ LinkMonitor (task 9) and the CLI (task 11) are in this slice because the pipelin
     - Comment the why: briefly explain the super-loop with a `millis()` schedule; why `next_sample_ms += SAMPLE_PERIOD_MS` instead of `now + period` (jitter doesn't accumulate, so the mean interval is exact); why no catch-up logic is needed (worst case ≈ 11 ms < 20 ms); why the first Sample waits one period; why `uart_write_frame`'s result is ignored (no other output channel, and the seq gap shows the host the loss); why `pm_sample_t` is a local (stack, not static RAM).
     - _Requirements: 1.3, 2.3, 2.4, 6.4, 6.5, 7.6, 8.2, 8.3, 16.3, 16.4_
 
-- [ ] 25. Add firmware source-rule checks
+- [x] 25. Add firmware source-rule checks
   - _Requirements: 1.5, 8.3, 15.1, 16.3, 16.4_
 
-  - [ ] 25.1 Implement `test_firmware_rules.py`
+  - [x] 25.1 Implement `test_firmware_rules.py`
     - Create `host/tests/test_firmware_rules.py` with a comment-and-string-literal stripper and its own small tests (`//` comments, `/* */` block comments spanning lines, a `"float"` string literal, and code after a comment are handled correctly).
     - Checks on stripped `src/` and `lib/pm_logic/src/` sources: no `float` or `double`; no `malloc`, `calloc`, `realloc`, `free(`, `new`, or `delete` (word-boundary matches); no Arduino headers (`Arduino.h`, `Wire.h`, `HardwareSerial.h`) in `lib/pm_logic`; `<Wire.h>` only in `ina219_driver.cpp`; `Serial` only in `uart_driver.cpp`; no `print`/`println` anywhere. The test asserts the scan found the expected files (at least `main.cpp`, both drivers, and every `pm_*.c`).
     - Comment the why: why comments and strings are stripped first (a comment explaining "no float" must not fail the test); why word boundaries (`new` must not match `next_seq`); why an empty scan must fail; that the native build also fails on Arduino headers, so this check doubles as a readable error.
